@@ -80,7 +80,6 @@ header span {
   margin-top: 5px;
 }
 
-/* Model selector in header */
 .model-pill {
   display: inline-block;
   margin-top: 8px;
@@ -114,7 +113,6 @@ header span {
   display: flex;
   flex-direction: column;
   gap: 36px;
-  scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -135,6 +133,7 @@ header span {
   display: block; 
   white-space: pre-wrap;
   word-break: break-word;
+  letter-spacing: 0.01em;
 }
 
 .user {
@@ -146,22 +145,22 @@ header span {
 
 .bot {
   align-self: flex-start;
-  color: #a0a0a0; 
+  color: #a0a0a0;
 }
 
 .bot::before {
   content: "BLANK_";
   display: block;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   line-height: 1;
-  margin-bottom: 10px; 
+  margin-bottom: 10px;
   opacity: 0.35;
   letter-spacing: 2px;
 }
 
 .copy-btn {
   position: absolute;
-  bottom: -20px;
+  bottom: -22px;
   right: 0;
   background: transparent;
   border: none;
@@ -175,6 +174,7 @@ header span {
 .copy-btn svg { width: 14px; height: 14px; fill: #555; transition: fill 0.2s; }
 .copy-btn:hover svg { fill: #fff; }
 
+/* Circular spinner — shown while waiting for API response */
 .spinner {
   width: 20px;
   height: 20px;
@@ -182,10 +182,20 @@ header span {
   border-top-color: rgba(255,255,255,0.45);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-  margin: 6px 0 4px 2px;
+  margin: 4px 0 2px 2px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.typing-cursor::after { content: "▋"; display: inline-block; animation: blink 1s step-end infinite; opacity: 0.7; margin-left: 2px; vertical-align: baseline; font-size: 0.8em; }
+
+/* Blinking cursor — shown only during typewriter, inline after text */
+.cursor-blink {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: rgba(255,255,255,0.4);
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -243,7 +253,7 @@ input::placeholder { color: #555; }
   50% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
 }
 
-/* Clear chat button */
+/* Clear button */
 .clear-btn {
   position: fixed;
   top: 16px;
@@ -263,13 +273,43 @@ input::placeholder { color: #555; }
 }
 .clear-btn:hover { color: #aaa; border-color: rgba(255,255,255,0.2); }
 
+/* Scroll-to-bottom arrow */
+#scrollBtn {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  z-index: 99;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(40,40,40,0.9);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #aaa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  backdrop-filter: blur(10px);
+}
+#scrollBtn.visible {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateX(-50%) translateY(0);
+}
+#scrollBtn:hover { background: rgba(60,60,60,0.95); color: #fff; }
+#scrollBtn svg { width: 16px; height: 16px; fill: currentColor; }
+
 @media (max-width: 768px) {
-  .app-container { border: none; box-shadow: none; max-width: 100%; } 
   header h1 { font-size: 1.2rem; }
   .msg { max-width: 90%; font-size: 0.95rem; }
   #chat { padding: 100px 15px 110px; } 
   .input-area { bottom: 12px; width: 94%; padding: 8px 12px; border-radius: 18px; }
-  .copy-btn { opacity: 0.5; bottom: -24px; } 
+  .copy-btn { opacity: 0.5; bottom: -24px; }
+  #scrollBtn { bottom: 88px; }
 }
 </style>
 </head>
@@ -292,6 +332,11 @@ input::placeholder { color: #555; }
 
   <button class="clear-btn" onclick="clearChat()">Clear</button>
 
+  <!-- Scroll to bottom arrow -->
+  <button id="scrollBtn" onclick="forceScrollBottom()" title="Scroll to bottom">
+    <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+  </button>
+
   <div id="chat">
     <div class="msg bot">
       <span class="msg-content">Ready.</span>
@@ -311,9 +356,31 @@ const chat = document.getElementById("chat");
 const input = document.getElementById("input");
 const btn = document.getElementById("sendBtn");
 const modelSelect = document.getElementById("modelSelect");
+const scrollBtn = document.getElementById("scrollBtn");
 
-// Conversation history kept in memory
 let history = [];
+// Track if user has scrolled up manually
+let userScrolledUp = false;
+
+// Detect manual scroll up
+chat.addEventListener("scroll", () => {
+  const distFromBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight;
+  userScrolledUp = distFromBottom > 80;
+  scrollBtn.classList.toggle("visible", userScrolledUp);
+});
+
+function forceScrollBottom() {
+  chat.scrollTop = chat.scrollHeight;
+  userScrolledUp = false;
+  scrollBtn.classList.remove("visible");
+}
+
+// Only auto-scroll if user hasn't scrolled up
+function autoScroll() {
+  if (!userScrolledUp) {
+    chat.scrollTop = chat.scrollHeight;
+  }
+}
 
 input.addEventListener("keypress", (e) => {
   if (e.key === "Enter") send();
@@ -326,9 +393,10 @@ async function send() {
   addMsg(text, "user");
   input.value = "";
   btn.disabled = true;
+  // Always scroll to bottom when user sends a message
+  forceScrollBottom();
 
   const loadingId = showLoading();
-  scrollToBottom();
 
   try {
     const res = await fetch("/chat", {
@@ -348,7 +416,6 @@ async function send() {
 
     const reply = (data.reply || "No response received.").trim();
 
-    // Save to history
     history.push({ role: "user", content: text });
     history.push({ role: "assistant", content: reply });
 
@@ -370,6 +437,8 @@ function clearChat() {
   div.className = "msg bot";
   div.innerHTML = `<span class="msg-content">Ready.</span>`;
   chat.appendChild(div);
+  userScrolledUp = false;
+  scrollBtn.classList.remove("visible");
 }
 
 function addMsg(text, cls) {
@@ -377,7 +446,7 @@ function addMsg(text, cls) {
   div.className = "msg " + cls;
   div.innerHTML = `<span class="msg-content">${escapeHtml(text)}</span>` + getCopyBtnHTML();
   chat.appendChild(div);
-  scrollToBottom();
+  autoScroll();
 }
 
 function escapeHtml(str) {
@@ -389,9 +458,10 @@ function showLoading() {
   const div = document.createElement("div");
   div.className = "msg bot";
   div.id = id;
+  // Spinner only — no text, no cursor
   div.innerHTML = `<div class="spinner"></div>`;
   chat.appendChild(div);
-  scrollToBottom();
+  autoScroll();
   return id;
 }
 
@@ -402,24 +472,32 @@ function removeLoading(id) {
 
 function typeMsg(text, cls) {
   const div = document.createElement("div");
-  div.className = "msg " + cls + " typing-cursor";
+  div.className = "msg " + cls;
 
   const textSpan = document.createElement("span");
   textSpan.className = "msg-content";
+
+  // Separate inline cursor element — NOT a CSS pseudo-element
+  const cursor = document.createElement("span");
+  cursor.className = "cursor-blink";
+
   div.appendChild(textSpan);
+  div.appendChild(cursor);
   chat.appendChild(div);
+  autoScroll();
 
   let i = 0;
-  const speed = 18;
+  const speed = 16;
 
   function type() {
     if (i < text.length) {
       textSpan.textContent += text.charAt(i);
       i++;
-      scrollToBottom();
+      autoScroll(); // respects userScrolledUp — won't hijack scroll
       setTimeout(type, speed);
     } else {
-      div.classList.remove("typing-cursor");
+      // Done — remove cursor, add copy button
+      cursor.remove();
       div.insertAdjacentHTML('beforeend', getCopyBtnHTML());
     }
   }
@@ -443,10 +521,6 @@ function getCopyBtnHTML() {
       <svg viewBox="0 0 24 24"><path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z"/></svg>
     </button>
   `;
-}
-
-function scrollToBottom() {
-  chat.scrollTop = chat.scrollHeight;
 }
 </script>
 
