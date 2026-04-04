@@ -41,13 +41,60 @@ body {
   overflow: hidden;
 }
 
-/* Desktop: collapsed sidebar */
+/* Desktop: collapsed sidebar → slim icon strip */
 #sidebar.collapsed {
-  width: 0;
-  min-width: 0;
-  opacity: 0;
-  border-right: none;
+  width: 56px;
+  min-width: 56px;
+  overflow: hidden;
 }
+#sidebar.collapsed .sidebar-header,
+#sidebar.collapsed .sessions-list,
+#sidebar.collapsed .sidebar-footer {
+  display: none;
+}
+#sidebar.collapsed .sidebar-strip {
+  display: flex;
+}
+
+.sidebar-strip {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  gap: 16px;
+  height: 100%;
+}
+.strip-brand {
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  background: linear-gradient(110deg, #555 30%, #fff 50%, #555 70%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 8s linear infinite;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  flex: 1;
+  text-align: center;
+}
+.strip-new-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #666;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+.strip-new-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.strip-new-btn svg { width: 16px; height: 16px; fill: currentColor; }
 
 /* Mobile: sidebar is overlay */
 #sidebar.open {
@@ -248,38 +295,78 @@ header h1 {
   margin-top: 3px;
 }
 
+/* Custom model dropdown */
 .model-pill {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
   display: inline-block;
   margin-top: 6px;
-  padding: 3px 10px;
+  position: relative;
 }
-.model-pill select {
-  background: #111;
-  border: none;
-  color: #666;
+
+.model-trigger {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  color: #777;
   cursor: pointer;
   font-family: var(--font);
-  font-size: 0.55rem;
-  letter-spacing: 0.1em;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  padding: 4px 12px 4px 10px;
   text-transform: uppercase;
-  appearance: none;
-  -webkit-appearance: none;
-  padding-right: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.2s, color 0.2s;
+  user-select: none;
+  white-space: nowrap;
 }
-.model-pill select option {
+.model-trigger:hover { border-color: rgba(255,255,255,0.22); color: #aaa; }
+.model-trigger svg { width: 10px; height: 10px; fill: currentColor; transition: transform 0.2s; }
+.model-trigger.open svg { transform: rotate(180deg); }
+
+.model-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
   background: #111;
-  color: #aaa;
-  padding: 8px 12px;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 6px;
+  min-width: 160px;
+  z-index: 300;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.8);
+  flex-direction: column;
+  gap: 2px;
 }
-.model-pill select option:checked {
-  color: #00ff87;
-  background: #0a0a0a;
+.model-dropdown.open { display: flex; }
+
+.model-option {
+  align-items: center;
+  border-radius: 9px;
+  cursor: pointer;
+  display: flex;
+  font-family: var(--font);
+  font-size: 0.72rem;
+  justify-content: space-between;
+  letter-spacing: 0.06em;
+  padding: 9px 12px;
+  text-transform: uppercase;
+  transition: background 0.15s;
+  color: #888;
 }
+.model-option:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.model-option.selected { color: #fff; }
+.model-option .check {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #00ff87;
+  box-shadow: 0 0 8px rgba(0,255,135,0.7);
+  flex-shrink: 0;
+  display: none;
+}
+.model-option.selected .check { display: block; }
 
 /* placeholder for menu btn on right to balance header */
 .header-right { width: 28px; flex-shrink: 0; }
@@ -608,13 +695,13 @@ body.chat-empty .input-area {
     bottom: 50%;
     transform: translateX(-50%) translateY(50%);
   }
-  /* Sidebar collapsed — center across full width */
+  /* Sidebar collapsed to strip — re-center */
   body.sidebar-collapsed .input-area {
-    left: 50%;
-    width: calc(100% - 80px);
+    left: calc(56px + (100% - 56px) / 2);
+    width: calc(100% - 136px);
   }
   body.sidebar-collapsed.chat-empty .input-area {
-    left: 50%;
+    left: calc(56px + (100% - 56px) / 2);
     bottom: 50%;
     transform: translateX(-50%) translateY(50%);
   }
@@ -628,6 +715,7 @@ body.chat-empty .input-area {
 
 <!-- Sidebar -->
 <div id="sidebar">
+  <!-- Full sidebar content -->
   <div class="sidebar-header">
     <span class="sidebar-brand">BLANK_</span>
     <button class="new-chat-btn" onclick="startNewChat()">
@@ -635,14 +723,18 @@ body.chat-empty .input-area {
       New Chat
     </button>
   </div>
-
-  <div class="sessions-list" id="sessionsList">
-    <!-- filled by JS -->
-  </div>
-
+  <div class="sessions-list" id="sessionsList"></div>
   <div class="sidebar-footer">
     <span class="sidebar-user">{{ username }}</span>
     <a href="/logout" class="logout-btn">Logout</a>
+  </div>
+
+  <!-- Collapsed strip (shown when sidebar.collapsed) -->
+  <div class="sidebar-strip">
+    <button class="strip-new-btn" onclick="startNewChat()" title="New Chat">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+    </button>
+    <span class="strip-brand">BLANK_</span>
   </div>
 </div>
 
@@ -656,13 +748,25 @@ body.chat-empty .input-area {
     <div class="header-center">
       <h1>BLANK_</h1>
       <span class="header-sub">System Online</span>
-      <div class="model-pill">
-        <select id="modelSelect">
-          <option value="llama-3.1-8b-instant" selected>Flash ⚡</option>
-          <option value="mixtral-8x7b-32768">Balanced</option>
-          <option value="gemma2-9b-it">Precise</option>
-          <option value="llama-3.3-70b-versatile">Reasoning</option>
-        </select>
+      <div class="model-pill" id="modelPill">
+        <div class="model-trigger" id="modelTrigger" onclick="toggleModelDropdown()">
+          <span id="modelLabel">Flash ⚡</span>
+          <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+        <div class="model-dropdown" id="modelDropdown">
+          <div class="model-option selected" data-value="llama-3.1-8b-instant" onclick="selectModel(this)">
+            Flash ⚡ <span class="check"></span>
+          </div>
+          <div class="model-option" data-value="mixtral-8x7b-32768" onclick="selectModel(this)">
+            Balanced <span class="check"></span>
+          </div>
+          <div class="model-option" data-value="gemma2-9b-it" onclick="selectModel(this)">
+            Precise <span class="check"></span>
+          </div>
+          <div class="model-option" data-value="llama-3.3-70b-versatile" onclick="selectModel(this)">
+            Reasoning <span class="check"></span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -896,7 +1000,7 @@ async function send() {
       body: JSON.stringify({
         message:    text,
         history:    history,
-        model:      modelSelect.value,
+        model:      selectedModel,
         session_id: currentSessId
       })
     });
@@ -1137,6 +1241,41 @@ function stopVoice() {
   if (recognition && isListening) recognition.stop();
 }
 
+/* ══════════════════════════════════════
+   CUSTOM MODEL DROPDOWN
+══════════════════════════════════════ */
+let selectedModel = "llama-3.1-8b-instant";
+
+function toggleModelDropdown() {
+  const trigger  = document.getElementById("modelTrigger");
+  const dropdown = document.getElementById("modelDropdown");
+  const isOpen   = dropdown.classList.contains("open");
+  dropdown.classList.toggle("open", !isOpen);
+  trigger.classList.toggle("open", !isOpen);
+}
+
+function selectModel(el) {
+  // Deselect all
+  document.querySelectorAll(".model-option").forEach(o => o.classList.remove("selected"));
+  // Select clicked
+  el.classList.add("selected");
+  selectedModel = el.dataset.value;
+  // Update trigger label (text node only, not the check span)
+  document.getElementById("modelLabel").textContent = el.childNodes[0].textContent.trim();
+  // Close dropdown
+  document.getElementById("modelDropdown").classList.remove("open");
+  document.getElementById("modelTrigger").classList.remove("open");
+}
+
+// Close dropdown when clicking outside
+document.addEventListener("click", (e) => {
+  const pill = document.getElementById("modelPill");
+  if (pill && !pill.contains(e.target)) {
+    document.getElementById("modelDropdown").classList.remove("open");
+    document.getElementById("modelTrigger").classList.remove("open");
+  }
+});
+
 /* ══ Init ══ */
 checkEmpty();
 loadSessions();
@@ -1144,6 +1283,8 @@ loadSessions();
 /* ══ Expose to global scope for onclick handlers ══ */
 window.checkEmpty        = checkEmpty;
 window.send              = send;
+window.toggleModelDropdown = toggleModelDropdown;
+window.selectModel       = selectModel;
 window.toggleVoice       = toggleVoice;
 window.toggleSidebar     = toggleSidebar;
 window.closeSidebar      = closeSidebar;
