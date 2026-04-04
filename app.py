@@ -207,6 +207,15 @@ def chat():
 with app.app_context():
     db.create_all()
 
+@app.route("/debug")
+def debug():
+    return jsonify({
+        "logged_in": logged_in(),
+        "session_data": dict(session),
+        "secret_key_set": bool(os.getenv("SECRET_KEY")),
+        "groq_key_set": bool(os.getenv("GROQ_API_KEY")),
+    })
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
