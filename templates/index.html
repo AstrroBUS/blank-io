@@ -35,18 +35,21 @@ body {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s ease;
+  transition: width 0.3s ease, min-width 0.3s ease, opacity 0.3s ease;
   z-index: 200;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
-#sidebar.hidden {
-  transform: translateX(-100%);
-  position: fixed;
-  top: 0; left: 0;
-  height: 100%;
+/* Desktop: collapsed sidebar */
+#sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  border-right: none;
 }
 
+/* Mobile: sidebar is overlay */
 #sidebar.open {
   transform: translateX(0);
 }
@@ -585,9 +588,20 @@ body.chat-empty .input-area {
 @media (min-width: 701px) {
   .input-area {
     left: calc(260px + (100% - 260px) / 2);
+    transition: left 0.3s ease, bottom 0.4s cubic-bezier(0.4,0,0.2,1), transform 0.4s cubic-bezier(0.4,0,0.2,1);
   }
   body.chat-empty .input-area {
     left: calc(260px + (100% - 260px) / 2);
+    bottom: 50%;
+    transform: translateX(-50%) translateY(50%);
+  }
+  /* Sidebar collapsed — center across full width */
+  body.sidebar-collapsed .input-area {
+    left: 50%;
+    width: calc(100% - 80px);
+  }
+  body.sidebar-collapsed.chat-empty .input-area {
+    left: 50%;
     bottom: 50%;
     transform: translateX(-50%) translateY(50%);
   }
@@ -690,9 +704,26 @@ let isTyping       = false;
 /* ══════════════════════════════════════
    SIDEBAR
 ══════════════════════════════════════ */
+function isMobile() {
+  return window.innerWidth <= 700;
+}
+
 function toggleSidebar() {
-  const open = sidebar.classList.contains("open");
-  open ? closeSidebar() : openSidebar();
+  if (isMobile()) {
+    const open = sidebar.classList.contains("open");
+    open ? closeSidebar() : openSidebar();
+  } else {
+    // Desktop: collapse/expand inline
+    const collapsed = sidebar.classList.contains("collapsed");
+    if (collapsed) {
+      sidebar.classList.remove("collapsed");
+      // update input centering
+      document.body.classList.remove("sidebar-collapsed");
+    } else {
+      sidebar.classList.add("collapsed");
+      document.body.classList.add("sidebar-collapsed");
+    }
+  }
 }
 function openSidebar() {
   sidebar.classList.add("open");
