@@ -378,16 +378,19 @@ header h1 {
 #chat.empty {
   align-items: center;
   justify-content: center;
-  padding-bottom: 60px;
   padding-top: 0;
+  padding-bottom: 0;
 }
 #chat::-webkit-scrollbar { width: 5px; }
 #chat::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 4px; }
 
-/* Welcome */
+/* Welcome — shown above input when empty */
 .welcome-msg {
   animation: fadeUp 0.4s ease-out;
   text-align: center;
+  margin-bottom: 20px;
+  pointer-events: none;
+  user-select: none;
 }
 .welcome-title {
   color: #fff;
@@ -508,31 +511,42 @@ header h1 {
   background: rgba(18,18,18,0.88);
   border: 1px solid var(--border);
   border-radius: 24px;
-  bottom: 20px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.7);
   display: flex;
   gap: 8px;
-  max-width: 720px;
+  max-width: 680px;
   padding: 8px 12px;
-  position: fixed;
-  transition: border-color 0.2s, bottom 0.4s cubic-bezier(0.4,0,0.2,1), left 0.3s ease, transform 0.4s cubic-bezier(0.4,0,0.2,1);
-  z-index: 100;
-
-  /* Desktop default: center within main (right of sidebar) */
-  left: calc(var(--sidebar-w) + (100% - var(--sidebar-w)) / 2);
-  transform: translateX(-50%);
-  width: calc(100% - var(--sidebar-w) - 60px);
+  width: 100%;
+  transition: border-color 0.2s;
 }
 .input-area:focus-within { border-color: rgba(255,255,255,0.18); }
 
-/* Chat empty → float to vertical center */
+/* ── EMPTY STATE: input lives inside #chat flow, centered ── */
+body.chat-empty #chat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 body.chat-empty .input-area {
-  bottom: 50%;
-  transform: translateX(-50%) translateY(50%);
+  position: relative;
+  bottom: auto;
+  left: auto;
+  transform: none;
 }
 
-/* Sidebar collapsed */
-body.sidebar-collapsed .input-area {
+/* ── ACTIVE STATE: input is fixed at bottom ── */
+body:not(.chat-empty) .input-area {
+  position: fixed;
+  bottom: 20px;
+  left: calc(var(--sidebar-w) + (100% - var(--sidebar-w)) / 2);
+  transform: translateX(-50%);
+  width: calc(100% - var(--sidebar-w) - 60px);
+  max-width: 680px;
+}
+
+/* Sidebar collapsed — active state re-center */
+body:not(.chat-empty).sidebar-collapsed .input-area {
   left: calc(var(--strip-w) + (100% - var(--strip-w)) / 2);
   width: calc(100% - var(--strip-w) - 60px);
 }
@@ -673,7 +687,7 @@ body.sidebar-collapsed .input-area {
   .msg { font-size: 0.95rem; max-width: 92%; }
   #chat { padding: 100px 14px 130px; }
 
-  .input-area {
+  body:not(.chat-empty) .input-area {
     bottom: 12px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
@@ -681,8 +695,12 @@ body.sidebar-collapsed .input-area {
     border-radius: 20px;
   }
   body.chat-empty .input-area {
-    bottom: 50% !important;
-    transform: translateX(-50%) translateY(50%) !important;
+    position: relative !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    width: 90% !important;
+    border-radius: 20px;
   }
   #scrollBtn { bottom: 88px; }
   #voiceToast { bottom: 80px; }
@@ -764,9 +782,11 @@ body.sidebar-collapsed .input-area {
     <div class="welcome-msg" id="welcomeMsg">
       <span class="welcome-title">Ready.</span>
     </div>
+    <!-- input placeholder shown in empty state -->
+    <div id="inputProxy"></div>
   </div>
 
-  <div class="input-area">
+  <div class="input-area" id="inputArea">
     <textarea id="input" placeholder="Ask BLANK_" autocomplete="off" rows="1"></textarea>
     <button id="micBtn" class="mic-btn" onclick="toggleVoice()" title="Voice">
       <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3.01 2.83 5.4 5.91 5.88V20H9c-.55 0-1 .45-1 1s.45 1 1 1h6c.55 0 1-.45 1-1s-.45-1-1-1h-2v-2.02c3.08-.47 5.42-2.87 5.91-5.88.1-.6-.39-1.1-1-1.1z"/></svg>
@@ -806,15 +826,27 @@ function checkEmpty() {
   chatEl.classList.toggle("empty", isEmpty);
   document.body.classList.toggle("chat-empty", isEmpty);
 
+  const inputArea = document.getElementById("inputArea");
+  const proxy     = document.getElementById("inputProxy");
+
+  // Welcome message
   let wm = document.getElementById("welcomeMsg");
   if (isEmpty && !wm) {
     const w = document.createElement("div");
     w.className = "welcome-msg";
     w.id = "welcomeMsg";
     w.innerHTML = `<span class="welcome-title">Ready.</span>`;
-    chatEl.appendChild(w);
+    chatEl.insertBefore(w, proxy || chatEl.firstChild);
   } else if (!isEmpty && wm) {
     wm.remove();
+  }
+
+  // Move input area into chat flow when empty, out when active
+  if (isEmpty && proxy && inputArea.parentNode !== chatEl) {
+    chatEl.insertBefore(inputArea, proxy);
+  } else if (!isEmpty && inputArea.parentNode === chatEl) {
+    // Move back to main
+    document.querySelector(".main").appendChild(inputArea);
   }
 }
 
@@ -1138,10 +1170,25 @@ function toggleModelDropdown() {
   const isOpen   = dropdown.classList.contains("open");
 
   if (!isOpen) {
+    // Position right below the trigger
     const rect = trigger.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    dropdown.style.position  = "fixed";
     dropdown.style.top       = (rect.bottom + 6) + "px";
-    dropdown.style.left      = (rect.left + rect.width / 2) + "px";
+    dropdown.style.left      = centerX + "px";
     dropdown.style.transform = "translateX(-50%)";
+    // Make sure it doesn't go off screen
+    setTimeout(() => {
+      const dr = dropdown.getBoundingClientRect();
+      if (dr.right > window.innerWidth - 8) {
+        dropdown.style.left = (window.innerWidth - dr.width - 8) + "px";
+        dropdown.style.transform = "none";
+      }
+      if (dr.left < 8) {
+        dropdown.style.left = "8px";
+        dropdown.style.transform = "none";
+      }
+    }, 0);
   }
 
   dropdown.classList.toggle("open", !isOpen);
