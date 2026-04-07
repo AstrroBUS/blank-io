@@ -331,7 +331,14 @@ html, body {
   animation:wlcIn 0.4s var(--ez) both;
   width:100%;
 }
-#wlc span{font-size:2rem;font-weight:600;color:#fff;letter-spacing:-0.01em;}
+
+/* FIX: Text glow added to span inside container so it safely fades out without conflicts */
+#wlc span{
+  font-size:2rem;font-weight:600;color:#fff;letter-spacing:-0.01em;
+  -webkit-animation:textGlow 3s ease-in-out infinite;
+  animation:textGlow 3s ease-in-out infinite;
+}
+
 #wlc.hide{
   -webkit-animation:wlcOut 0.3s var(--ez) forwards;
   animation:wlcOut 0.3s var(--ez) forwards;
@@ -435,7 +442,8 @@ html, body {
 
 #bar:focus-within{border-color:rgba(255,255,255,0.2);}
 
-body.mt #bar {
+/* FIX: Centered Input Bar for Empty Chat ONLY when keyboard is NOT open */
+body.mt #bar:not(:focus-within) {
   bottom: calc(50% - 60px) !important;
 }
 
@@ -529,6 +537,7 @@ body.mt #bar {
 }
 #vtoast.on{opacity:1;-webkit-transform:translateX(-50%) translateY(0);transform:translateX(-50%) translateY(0);}
 
+/* ══ KEYFRAMES ═══════════════════════════════════════════ */
 @-webkit-keyframes shimmer{to{background-position:-200% center}}
 @keyframes shimmer{to{background-position:-200% center}}
 @-webkit-keyframes slideUp{from{opacity:0;-webkit-transform:translateY(10px)}to{opacity:1;-webkit-transform:translateY(0)}}
@@ -541,6 +550,10 @@ body.mt #bar {
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.88)}}
 @-webkit-keyframes glow{0%,100%{box-shadow:0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 20px rgba(255,255,255,0.35)}}
 @keyframes glow{0%,100%{box-shadow:0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 20px rgba(255,255,255,0.35)}}
+
+/* FIX: Text glow exclusively for Ready text */
+@-webkit-keyframes textGlow{0%,100%{text-shadow:0 0 0 rgba(255,255,255,0)}50%{text-shadow:0 0 20px rgba(255,255,255,0.6)}}
+@keyframes textGlow{0%,100%{text-shadow:0 0 0 rgba(255,255,255,0)}50%{text-shadow:0 0 20px rgba(255,255,255,0.6)}}
 
 @media(max-width:700px){
 
@@ -597,7 +610,8 @@ body.mt #bar {
     border-radius:20px;padding:6px 8px;
   }
   
-  body.mt #bar {
+  /* FIX: Mobile Centered Input Bar for Empty Chat ONLY when keyboard is NOT open */
+  body.mt #bar:not(:focus-within) {
     bottom: calc(50% - 60px) !important;
   }
 
@@ -618,7 +632,7 @@ body.mt #bar {
 </style>
 </head>
 
-<body>
+<body class="mt">
 <div id="app">
   <div id="overlay"></div>
 
@@ -695,7 +709,7 @@ body.mt #bar {
 
 <script>
 /* ══════════════════════════════════════════════════════════
-   BLANK_ — v12 — Placeholder & Viewport Fix
+   BLANK_ — v13 — Precise Keyboard Drop & Placeholder
 ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', function() {
   'use strict';
@@ -727,7 +741,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function isMobile(){ return window.innerWidth <= 700; }
 
   /* ══════════════════════
-     EMPTY / WELCOME LOGIC (UPDATED PLACEHOLDER)
+     EMPTY / WELCOME LOGIC
   ══════════════════════ */
   function msgCount(){ return $chat ? $chat.querySelectorAll('.msg').length : 0; }
 
@@ -742,7 +756,7 @@ document.addEventListener('DOMContentLoaded', function() {
       $wlc.classList.add('hide');
     }
     
-    // Updates placeholder depending on if it's a new or old chat
+    // FIX: Updates placeholder dynamically depending on if it's a new or old chat
     $inp.placeholder = e ? 'Ask BLANK_' : 'Reply to BLANK_';
   }
 
@@ -1114,13 +1128,10 @@ document.addEventListener('DOMContentLoaded', function() {
      KEYBOARD VIEWPORT FIX
   ══════════════════════ */
   function adjustViewport() {
-    // Dynamically adjust the main wrapper height exactly to the visible window.
-    // This entirely solves the "can't scroll to bottom when keyboard opens" Android WebView bug.
     document.getElementById('app').style.height = window.innerHeight + 'px';
     scrollBot(false);
   }
   
-  // Listen for real window resizes (which happens when the keyboard pops up on Android)
   window.addEventListener('resize', adjustViewport);
   
   if (window.visualViewport) {
@@ -1128,7 +1139,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window.visualViewport.addEventListener('scroll', adjustViewport);
   }
   
-  // Delay a split-second to ensure the UI has shifted before scrolling the chat to the bottom
   $inp.addEventListener('focus', function() {
     setTimeout(function(){ scrollBot(false); }, 300);
   });
