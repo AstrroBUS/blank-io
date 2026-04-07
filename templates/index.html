@@ -54,8 +54,8 @@ html, body {
   position:absolute;
   inset:0;
   z-index:900;
-  background:rgba(0,0,0,0.5);
-  -webkit-backdrop-filter:blur(12px);
+  background:rgba(0,0,0,0.5); 
+  -webkit-backdrop-filter:blur(12px); 
   backdrop-filter:blur(12px);
   opacity:0;pointer-events:none;
   -webkit-transition:opacity 0.28s var(--ez);
@@ -322,13 +322,15 @@ html, body {
 /* ══ WELCOME / READY ═════════════════════════════════════ */
 #wlc{
   position:absolute;
-  top:40%; /* Moved back up to original position */
+  top: 38%; /* Locked absolute top position */
   left:50%; 
   -webkit-transform:translate(-50%, -50%); transform:translate(-50%, -50%);
   text-align:center; pointer-events:none;
   -webkit-user-select:none; user-select:none; z-index:10;
-  -webkit-animation:wlcIn 0.4s ease both;
-  animation:wlcIn 0.4s ease both;
+  
+  /* FIX: Fade IN only (no sliding) */
+  -webkit-animation:fadeIn 0.5s ease both;
+  animation:fadeIn 0.5s ease both;
   width:100%;
 }
 
@@ -339,27 +341,15 @@ html, body {
 }
 
 #wlc.hide{
-  -webkit-animation:wlcOut 0.3s ease forwards;
-  animation:wlcOut 0.3s ease forwards;
+  /* FIX: Fade OUT only */
+  -webkit-animation:fadeOut 0.3s ease forwards;
+  animation:fadeOut 0.3s ease forwards;
 }
 
-/* FIX: FADE IN ONLY (No scaling or moving) */
-@-webkit-keyframes wlcIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes wlcIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@-webkit-keyframes wlcOut {
-  from { opacity: 1; }
-  to   { opacity: 0; }
-}
-@keyframes wlcOut {
-  from { opacity: 1; }
-  to   { opacity: 0; }
-}
+@-webkit-keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@-webkit-keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
 /* ══ CHAT ════════════════════════════════════════════════ */
 #chat{
@@ -372,7 +362,7 @@ html, body {
   overscroll-behavior:contain;
   -webkit-touch-callout:none;
   touch-action:pan-y;
-  padding:140px 16px 110px; /* Increased to clear the header */
+  padding:130px 16px 110px;
 }
 #chat::-webkit-scrollbar{width:4px;}
 #chat::-webkit-scrollbar-thumb{background:#1a1a1a;border-radius:4px;}
@@ -440,9 +430,9 @@ html, body {
 
 #bar:focus-within{border-color:rgba(255,255,255,0.2);}
 
-/* FIX: Placed much lower down the screen (25%) so it's not close to Ready */
-body.mt #bar:not(:focus-within) {
-  bottom: 25% !important;
+/* Desktop Empty State */
+body.mt #bar {
+  bottom: calc(62% - 85px) !important;
 }
 
 @media(min-width:701px){
@@ -535,8 +525,6 @@ body.mt #bar:not(:focus-within) {
 }
 #vtoast.on{opacity:1;-webkit-transform:translateX(-50%) translateY(0);transform:translateX(-50%) translateY(0);}
 
-@-webkit-keyframes shimmer{to{background-position:-200% center}}
-@keyframes shimmer{to{background-position:-200% center}}
 @-webkit-keyframes slideUp{from{opacity:0;-webkit-transform:translateY(10px)}to{opacity:1;-webkit-transform:translateY(0)}}
 @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @-webkit-keyframes spin{to{-webkit-transform:rotate(360deg)}}
@@ -566,8 +554,10 @@ body.mt #bar:not(:focus-within) {
 
     -webkit-transform:translate3d(-110%, 0, 0) !important;
     transform:translate3d(-110%, 0, 0) !important;
-    -webkit-transition:-webkit-transform 0.3s var(--ez) !important;
-    transition:transform 0.3s var(--ez) !important;
+    
+    /* FIX: Smoother Sidebar Glide */
+    -webkit-transition:-webkit-transform 0.4s cubic-bezier(0.1, 0.9, 0.2, 1) !important;
+    transition:transform 0.4s cubic-bezier(0.1, 0.9, 0.2, 1) !important;
     box-shadow:8px 0 40px rgba(0,0,0,0.85);
   }
   #sb.open{
@@ -591,9 +581,9 @@ body.mt #bar:not(:focus-within) {
 
   #chat{
     padding-left:12px !important;padding-right:12px !important;
-    /* FIX: Increased padding to allow scrolling past the header */
-    padding-top:140px !important; 
-    padding-bottom:120px !important;
+    /* FIX: Large padding to allow smooth scroll to the very top message over the keyboard */
+    padding-top:160px !important; 
+    padding-bottom:140px !important;
   }
 
   .msg{max-width:90%;font-size:0.95rem;}
@@ -607,8 +597,10 @@ body.mt #bar:not(:focus-within) {
     border-radius:20px;padding:6px 8px;
   }
   
-  body.mt #bar:not(:focus-within) {
-    bottom: 25% !important; /* Mobile fixed pos lower down */
+  /* FIX: Mathematically locked distance below Ready. 
+     62% from bottom means it stays exactly 85px below the 38% Ready text */
+  body.mt #bar {
+    bottom: calc(62% - 85px) !important; 
   }
 
   #inp{font-size:16px !important;}
@@ -705,7 +697,7 @@ body.mt #bar:not(:focus-within) {
 
 <script>
 /* ══════════════════════════════════════════════════════════
-   BLANK_ — v15 — Final Position, Fade & Top-Scroll Fixes
+   BLANK_ — v16 — Locked Center State & History Fix
 ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', function() {
   'use strict';
@@ -752,7 +744,10 @@ document.addEventListener('DOMContentLoaded', function() {
       $wlc.classList.add('hide');
     }
     
+    // FIX: Updates placeholder dynamically depending on if it's a new or old chat
     $inp.placeholder = e ? 'Ask BLANK_' : 'Reply to BLANK_';
+    
+    // Instantly recalibrate the view so it knows whether to lock height or not
     adjustViewport();
   }
 
@@ -853,14 +848,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function loadSession(id){
     fetchJSON('/sessions/'+id, {credentials:'include'}).then(function(d){
-      if(d && d.id) sid=d.id;
-      hist=(d.messages||[]).map(function(m){ return {role:m.role, content:m.content||m.text||''}; });
+      // FIX: Robustly handles differences between backend arrays or objects to prevent "ruined state"
+      sid = (d && d.id) ? d.id : id;
+      
+      var msgs = Array.isArray(d) ? d : (d.messages || d.history || d.chat || []);
+      
+      hist = msgs.map(function(m){ 
+        return {role: m.role, content: m.content || m.text || m.message || ''}; 
+      });
+      
       clearChat();
-      (d.messages||[]).forEach(function(m){
-        var txt = m.content || m.text || '';
+      
+      msgs.forEach(function(m){
+        var txt = m.content || m.text || m.message || '';
         if(m.role==='user') addUserI(txt); else addBotI(txt);
       });
-      syncEmpty(); scrollBot(true); loadSessions();
+      
+      syncEmpty(); 
+      scrollBot(true); 
+      loadSessions();
     }).finally(function(){ closeSB(); });
   }
 
@@ -1132,6 +1138,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var app = document.getElementById('app');
     
+    // FIX: Locks height strictly in empty state so keyboard doesn't shift "Ready" and bar.
     if (document.body.classList.contains('mt')) {
        app.style.height = initialHeight + 'px'; 
     } else {
