@@ -420,6 +420,7 @@ html, body {
   -webkit-align-items:flex-end;align-items:flex-end;
   gap:6px;padding:8px 10px;
   
+  /* Blur effect for Input Bar */
   background:rgba(14,14,14,0.75);
   -webkit-backdrop-filter:blur(20px);
   backdrop-filter:blur(20px);
@@ -427,6 +428,7 @@ html, body {
   border:1px solid var(--bord);border-radius:24px;
   box-shadow:0 8px 32px rgba(0,0,0,0.8);
   
+  /* Smooth animation for position changes */
   -webkit-transition:border-color 0.2s var(--ez), bottom 0.4s var(--ez);
   transition:border-color 0.2s var(--ez), bottom 0.4s var(--ez);
 }
@@ -693,7 +695,7 @@ body.mt #bar {
 
 <script>
 /* ══════════════════════════════════════════════════════════
-   BLANK_ — v11 — Bulletproof History & Overlay Blur
+   BLANK_ — v12 — Placeholder & Viewport Fix
 ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', function() {
   'use strict';
@@ -725,15 +727,23 @@ document.addEventListener('DOMContentLoaded', function() {
   function isMobile(){ return window.innerWidth <= 700; }
 
   /* ══════════════════════
-     EMPTY / WELCOME LOGIC
+     EMPTY / WELCOME LOGIC (UPDATED PLACEHOLDER)
   ══════════════════════ */
   function msgCount(){ return $chat ? $chat.querySelectorAll('.msg').length : 0; }
 
   function syncEmpty(){
     var e = msgCount() === 0;
+    
     document.body.classList.toggle('mt', e);
-    if(e){ $wlc.classList.remove('hide'); } 
-    else { $wlc.classList.add('hide'); }
+
+    if(e){
+      $wlc.classList.remove('hide');
+    } else {
+      $wlc.classList.add('hide');
+    }
+    
+    // Updates placeholder depending on if it's a new or old chat
+    $inp.placeholder = e ? 'Ask BLANK_' : 'Reply to BLANK_';
   }
 
   /* ══════════════════════
@@ -742,19 +752,20 @@ document.addEventListener('DOMContentLoaded', function() {
   function openSB(){
     $sb.classList.add('open');
     $ov.classList.add('on');
-    loadSessions(); // Always refresh when opened
+    loadSessions(); 
   }
   function closeSB(){
     $sb.classList.remove('open');
     $ov.classList.remove('on');
   }
   function toggleSB(){
+    loadSessions(); 
+
     if(isMobile()){
       $sb.classList.contains('open') ? closeSB() : openSB();
     } else {
       var c = $sb.classList.toggle('col');
       document.body.classList.toggle('col', c);
-      loadSessions(); // Always refresh
     }
   }
 
@@ -775,7 +786,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }, {passive:false});
 
   /* ══════════════════════
-     SESSIONS & API (Bulletproof Json)
+     SESSIONS
   ══════════════════════ */
   function fetchJSON(url, options) {
     return fetch(url, options).then(function(r){
@@ -788,7 +799,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function loadSessions(){
     fetchJSON('/sessions', {credentials:'include'}).then(function(d){
-      // Ensure we always extract an array, even if the API shape changes
       var arr = Array.isArray(d) ? d : (d.sessions || []);
       renderSessions(arr);
     });
@@ -926,7 +936,6 @@ document.addEventListener('DOMContentLoaded', function() {
           typeBot('Connection lost or empty response.');
         }
         
-        // Always refresh history sidebar immediately after a message is successfully sent!
         loadSessions(); 
       })
       .catch(function(err){
@@ -1100,6 +1109,31 @@ document.addEventListener('DOMContentLoaded', function() {
     try{ recog.start(); }catch(e){ recog=null; }
   }
   function stopVoice(){ if(recog){ try{ recog.stop(); }catch(e){} } }
+
+  /* ══════════════════════
+     KEYBOARD VIEWPORT FIX
+  ══════════════════════ */
+  function adjustViewport() {
+    // Dynamically adjust the main wrapper height exactly to the visible window.
+    // This entirely solves the "can't scroll to bottom when keyboard opens" Android WebView bug.
+    document.getElementById('app').style.height = window.innerHeight + 'px';
+    scrollBot(false);
+  }
+  
+  // Listen for real window resizes (which happens when the keyboard pops up on Android)
+  window.addEventListener('resize', adjustViewport);
+  
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', adjustViewport);
+    window.visualViewport.addEventListener('scroll', adjustViewport);
+  }
+  
+  // Delay a split-second to ensure the UI has shifted before scrolling the chat to the bottom
+  $inp.addEventListener('focus', function() {
+    setTimeout(function(){ scrollBot(false); }, 300);
+  });
+  
+  adjustViewport();
 
   /* ══════════════════════
      INIT
