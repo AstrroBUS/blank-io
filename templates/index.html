@@ -69,8 +69,13 @@ html, body {
   -webkit-flex-direction:column;flex-direction:column;
   -webkit-flex-shrink:0;flex-shrink:0;
   width:var(--sw);height:100%;
-  background:var(--sbg);
-  border-right:1px solid var(--bord);
+  
+  /* Glassmorphism Blur Effect for Sidebar */
+  background:rgba(10, 10, 10, 0.65);
+  -webkit-backdrop-filter:blur(24px);
+  backdrop-filter:blur(24px);
+  
+  border-right:1px solid rgba(255, 255, 255, 0.08);
   overflow:hidden;
   -webkit-transition:width 0.32s var(--ez);
   transition:width 0.32s var(--ez);
@@ -124,8 +129,8 @@ html, body {
   outline:none;
 }
 .ncbtn svg{fill:currentColor;width:15px;height:15px;-webkit-flex-shrink:0;flex-shrink:0;}
-.ncbtn:hover{background:rgba(255,255,255,0.10);color:#fff;}
-.ncbtn:active{background:rgba(255,255,255,0.14);}
+.ncbtn:hover{background:rgba(255,255,255,0.12);color:#fff;}
+.ncbtn:active{background:rgba(255,255,255,0.16);}
 
 .sbl{
   -webkit-flex:1;flex:1;
@@ -139,7 +144,7 @@ html, body {
 }
 .sbl::-webkit-scrollbar{width:3px;}
 .sbl::-webkit-scrollbar-thumb{background:#222;border-radius:4px;}
-.sbl-empty{color:#282828;font-size:0.7rem;padding:14px 8px;letter-spacing:0.08em;}
+.sbl-empty{color:#555;font-size:0.7rem;padding:14px 8px;letter-spacing:0.08em;}
 
 .si{
   display:-webkit-box;display:-webkit-flex;display:flex;
@@ -151,17 +156,17 @@ html, body {
   -webkit-user-select:none;user-select:none;
 }
 .si:hover{background:rgba(255,255,255,0.05);}
-.si.act{background:rgba(255,255,255,0.09);}
-.si:active{background:rgba(255,255,255,0.13);}
+.si.act{background:rgba(255,255,255,0.1);}
+.si:active{background:rgba(255,255,255,0.14);}
 .si-t{
-  -webkit-flex:1;flex:1;font-size:0.8rem;color:#666;
+  -webkit-flex:1;flex:1;font-size:0.8rem;color:#777;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   -webkit-transition:color 0.16s var(--ez);transition:color 0.16s var(--ez);
 }
 .si.act .si-t{color:#fff;}
 .si-d{
   -webkit-flex-shrink:0;flex-shrink:0;
-  background:transparent;border:none;color:#2a2a2a;
+  background:transparent;border:none;color:#444;
   padding:7px;cursor:pointer;border-radius:6px;
   display:-webkit-box;display:-webkit-flex;display:flex;
   -webkit-align-items:center;align-items:center;
@@ -182,14 +187,14 @@ html, body {
   padding-bottom:calc(12px + env(safe-area-inset-bottom, 0px));
   border-top:1px solid var(--bord);
 }
-.sbuser{font-size:0.7rem;color:#3a3a3a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-flex:1;flex:1;min-width:0;margin-right:8px;}
+.sbuser{font-size:0.7rem;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-flex:1;flex:1;min-width:0;margin-right:8px;}
 .logout{
   -webkit-flex-shrink:0;flex-shrink:0;
   display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;
   -webkit-align-items:center;align-items:center;
   padding:6px 10px;background:transparent;
   border:1px solid rgba(255,255,255,0.08);border-radius:8px;
-  color:#3a3a3a;font-family:var(--font);font-size:0.56rem;letter-spacing:0.12em;
+  color:#555;font-family:var(--font);font-size:0.56rem;letter-spacing:0.12em;
   text-transform:uppercase;text-decoration:none;
   -webkit-transition:color 0.2s,border-color 0.2s;transition:color 0.2s,border-color 0.2s;
 }
@@ -316,7 +321,7 @@ html, body {
 /* ══ WELCOME / READY ═════════════════════════════════════ */
 #wlc{
   position:absolute;
-  top:40%; left:50%; /* Adjusted top to make room for centered bar */
+  top:40%; left:50%; 
   -webkit-transform:translate(-50%, -50%); transform:translate(-50%, -50%);
   text-align:center; pointer-events:none;
   -webkit-user-select:none; user-select:none; z-index:10;
@@ -455,7 +460,6 @@ body.mt #bar {
   line-height:1.5;
   padding:7px 8px;resize:none;max-height:160px;overflow-y:auto;
   -webkit-user-select:text;user-select:text;
-  /* Fix: Remove yellow outline on Android */
   outline:none !important;
   box-shadow:none !important;
 }
@@ -549,6 +553,12 @@ body.mt #bar {
     height:100% !important;
     width:82vw !important;max-width:300px !important;min-width:0 !important;
     z-index:1000 !important;
+    
+    /* Stronger glassmorphism to guarantee blur on mobile drawer */
+    background:rgba(10, 10, 10, 0.70) !important;
+    -webkit-backdrop-filter:blur(24px) !important;
+    backdrop-filter:blur(24px) !important;
+
     -webkit-transform:translate3d(-110%, 0, 0) !important;
     transform:translate3d(-110%, 0, 0) !important;
     -webkit-transition:-webkit-transform 0.3s var(--ez) !important;
@@ -591,7 +601,6 @@ body.mt #bar {
     border-radius:20px;padding:6px 8px;
   }
   
-  /* Mobile Specific Empty State Bar Position */
   body.mt #bar {
     bottom: calc(50% - 60px) !important;
   }
@@ -690,7 +699,7 @@ body.mt #bar {
 
 <script>
 /* ══════════════════════════════════════════════════════════
-   BLANK_ — v8 — Blur, Center Bar & Outline Fix
+   BLANK_ — v10 — Hardened API & UI State
 ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', function() {
   'use strict';
@@ -745,6 +754,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function openSB(){
     $sb.classList.add('open');
     $ov.classList.add('on');
+    loadSessions(); /* Force refresh when opened */
   }
   function closeSB(){
     $sb.classList.remove('open');
@@ -756,6 +766,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       var c = $sb.classList.toggle('col');
       document.body.classList.toggle('col', c);
+      loadSessions(); /* Force refresh for desktop too */
     }
   }
 
@@ -776,22 +787,38 @@ document.addEventListener('DOMContentLoaded', function() {
   }, {passive:false});
 
   /* ══════════════════════
-     SESSIONS
+     SESSIONS (Bulletproof API calls)
   ══════════════════════ */
+  
+  // Safe JSON wrapper to prevent HTML crashes from sleeping servers
+  function fetchSafe(url, options) {
+    return fetch(url, options)
+      .then(function(r) {
+        if (!r.ok) throw new Error('Server returned ' + r.status);
+        return r.text().then(function(text) {
+          try { return JSON.parse(text); } 
+          catch (err) { throw new Error('Invalid JSON response'); }
+        });
+      });
+  }
+
   function loadSessions(){
-    fetch('/sessions', {credentials:'include'})
-      .then(function(r){ return r.ok ? r.json() : {sessions:[]}; })
+    fetchSafe('/sessions', {credentials:'include'})
       .then(function(d){ renderSessions(d.sessions||[]); })
-      .catch(function(e){ console.warn('loadSessions',e); });
+      .catch(function(e){ 
+        console.warn('loadSessions Error:', e);
+        // Do not overwrite sidebar if it fails, just leave it as is or show error softly
+      });
   }
 
   function renderSessions(list){
     var f = document.createDocumentFragment();
-    if(!list.length){
+    if(!list || !list.length){
       var p = document.createElement('div');
       p.className='sbl-empty'; p.textContent='No chats yet';
       f.appendChild(p);
     } else {
+      // Create session items
       list.forEach(function(s){
         var row = document.createElement('div');
         row.className = 'si' + (s.id===sid ? ' act' : '');
@@ -815,35 +842,39 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function newChat(){
     if(sid && msgCount()===0){ closeSB(); return; }
-    fetch('/sessions/new', {method:'POST', credentials:'include'})
-      .then(function(r){ return r.ok ? r.json() : null; })
+    fetchSafe('/sessions/new', {method:'POST', credentials:'include'})
       .then(function(d){
         if(!d) return;
         sid=d.id; hist=[];
         clearChat();
         loadSessions();
       })
-      .catch(function(e){ console.warn('newChat',e); })
+      .catch(function(e){ console.warn('newChat Error:', e); })
       .finally(function(){ closeSB(); });
   }
 
   function loadSession(id){
-    fetch('/sessions/'+id, {credentials:'include'})
-      .then(function(r){ return r.ok ? r.json() : null; })
+    fetchSafe('/sessions/'+id, {credentials:'include'})
       .then(function(d){
         if(!d||d.error) return;
         sid=d.id;
-        hist=(d.messages||[]).map(function(m){ return {role:m.role,content:m.content}; });
+        // Properly parse history to match what the chat sends
+        hist=(d.messages||[]).map(function(m){ return {role:m.role, content:m.content || m.text || ''}; });
+        
         clearChat();
+        
+        // Render history visually
         (d.messages||[]).forEach(function(m){
-          if(m.role==='user') addUserI(m.content);
-          else addBotI(m.content);
+          var textContent = m.content || m.text || ''; // Fallback for diff API structures
+          if(m.role==='user') addUserI(textContent);
+          else addBotI(textContent);
         });
+        
         syncEmpty();
         scrollBot(true);
-        loadSessions();
+        loadSessions(); // Highlight active
       })
-      .catch(function(e){ console.warn('loadSession',e); })
+      .catch(function(e){ console.warn('loadSession Error:', e); })
       .finally(function(){ closeSB(); });
   }
 
@@ -853,7 +884,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if(sid===id){ sid=null; hist=[]; clearChat(); }
         loadSessions();
       })
-      .catch(function(e){ console.warn('delSession',e); });
+      .catch(function(e){ console.warn('delSession Error:', e); });
   }
 
   $nc.addEventListener('click', newChat);
@@ -913,26 +944,28 @@ document.addEventListener('DOMContentLoaded', function() {
       $inp.blur();
 
       var lid = showSpin();
-      fetch('/chat', {
+      
+      fetchSafe('/chat', {
         method:'POST', credentials:'include',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({message:text, history:hist, model:mdl, session_id:sid})
       })
-      .then(function(r){
-        removeSpin(lid);
-        if(!r.ok) throw new Error('HTTP '+r.status);
-        return r.json();
-      })
       .then(function(d){
         var reply = (d.reply||'No response received.').trim();
+        removeSpin(lid);
+        
+        // Push to local history array
         hist.push({role:'user', content:text});
         hist.push({role:'assistant', content:reply});
+        
         typeBot(reply);
-        if(hist.length===2) loadSessions();
+        
+        // If this was the first exchange, update sidebar title
+        if(hist.length <= 2) loadSessions();
       })
-      .catch(function(){
+      .catch(function(err){
         removeSpin(lid);
-        typeBot('Connection lost. Please try again.');
+        typeBot('Connection error: ' + err.message + '. Please check your connection or wait for the server to wake up.');
       })
       .finally(function(){
         $snd.disabled=false;
@@ -940,10 +973,9 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     if(!sid){
-      fetch('/sessions/new', {method:'POST', credentials:'include'})
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(d){ if(d) { sid=d.id; loadSessions(); } })
-        .catch(function(){})
+      fetchSafe('/sessions/new', {method:'POST', credentials:'include'})
+        .then(function(d){ if(d && d.id) { sid=d.id; loadSessions(); } })
+        .catch(function(){}) // Failsafe fallback
         .finally(doSend);
     } else {
       doSend();
