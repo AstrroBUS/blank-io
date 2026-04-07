@@ -323,7 +323,8 @@ html, body {
 /* ══ WELCOME / READY ═════════════════════════════════════ */
 #wlc{
   position:absolute;
-  top:40%; left:50%; 
+  top:35%; /* Shifted slightly up so it avoids the centered bar perfectly */
+  left:50%; 
   -webkit-transform:translate(-50%, -50%); transform:translate(-50%, -50%);
   text-align:center; pointer-events:none;
   -webkit-user-select:none; user-select:none; z-index:10;
@@ -332,7 +333,7 @@ html, body {
   width:100%;
 }
 
-/* FIX: Text glow added to span inside container so it safely fades out without conflicts */
+/* FIX: Glow Effect applied directly to the text so the container fade-out still works */
 #wlc span{
   font-size:2rem;font-weight:600;color:#fff;letter-spacing:-0.01em;
   -webkit-animation:textGlow 3s ease-in-out infinite;
@@ -442,9 +443,9 @@ html, body {
 
 #bar:focus-within{border-color:rgba(255,255,255,0.2);}
 
-/* FIX: Centered Input Bar for Empty Chat ONLY when keyboard is NOT open */
-body.mt #bar:not(:focus-within) {
-  bottom: calc(50% - 60px) !important;
+/* FIX: Removes focus requirement. The bar is PERMANENTLY centered when chat is empty */
+body.mt #bar {
+  bottom: 55% !important;
 }
 
 @media(min-width:701px){
@@ -551,7 +552,7 @@ body.mt #bar:not(:focus-within) {
 @-webkit-keyframes glow{0%,100%{box-shadow:0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 20px rgba(255,255,255,0.35)}}
 @keyframes glow{0%,100%{box-shadow:0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 20px rgba(255,255,255,0.35)}}
 
-/* FIX: Text glow exclusively for Ready text */
+/* FIX: Text glow keyframe for the Ready text */
 @-webkit-keyframes textGlow{0%,100%{text-shadow:0 0 0 rgba(255,255,255,0)}50%{text-shadow:0 0 20px rgba(255,255,255,0.6)}}
 @keyframes textGlow{0%,100%{text-shadow:0 0 0 rgba(255,255,255,0)}50%{text-shadow:0 0 20px rgba(255,255,255,0.6)}}
 
@@ -610,9 +611,9 @@ body.mt #bar:not(:focus-within) {
     border-radius:20px;padding:6px 8px;
   }
   
-  /* FIX: Mobile Centered Input Bar for Empty Chat ONLY when keyboard is NOT open */
-  body.mt #bar:not(:focus-within) {
-    bottom: calc(50% - 60px) !important;
+  /* FIX: Forces bar to stay perfectly still until a message is sent */
+  body.mt #bar {
+    bottom: 55% !important;
   }
 
   #inp{font-size:16px !important;}
@@ -694,7 +695,7 @@ body.mt #bar:not(:focus-within) {
     <div id="vtoast" aria-live="polite">● Listening…</div>
 
     <div id="bar">
-      <textarea id="inp" placeholder="Ask BLANK_" rows="1"
+      <textarea id="inp" placeholder="Ask BLANK_" rows="1" autofocus
         autocomplete="off" autocorrect="on" spellcheck="true"
         aria-label="Message" enterkeyhint="send"></textarea>
       <button class="ibtn" id="micbtn" aria-label="Voice">
@@ -709,7 +710,7 @@ body.mt #bar:not(:focus-within) {
 
 <script>
 /* ══════════════════════════════════════════════════════════
-   BLANK_ — v13 — Precise Keyboard Drop & Placeholder
+   BLANK_ — v14 — Auto-focus & Lock Layout Empty
 ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', function() {
   'use strict';
@@ -758,6 +759,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // FIX: Updates placeholder dynamically depending on if it's a new or old chat
     $inp.placeholder = e ? 'Ask BLANK_' : 'Reply to BLANK_';
+    
+    // Instantly recalibrate the view so it knows whether to lock height or not
+    adjustViewport();
   }
 
   /* ══════════════════════
@@ -1127,8 +1131,24 @@ document.addEventListener('DOMContentLoaded', function() {
   /* ══════════════════════
      KEYBOARD VIEWPORT FIX
   ══════════════════════ */
+  var initialHeight = window.innerHeight;
+
   function adjustViewport() {
-    document.getElementById('app').style.height = window.innerHeight + 'px';
+    // If keyboard is closed (window returned to full height), update initialHeight safely.
+    if (window.innerHeight > initialHeight) {
+       initialHeight = window.innerHeight; 
+    }
+
+    var app = document.getElementById('app');
+    
+    // FIX: If the chat is EMPTY, lock the app height to the full screen.
+    // This stops "Ready" and the text bar from moving when the keyboard opens.
+    if (document.body.classList.contains('mt')) {
+       app.style.height = initialHeight + 'px'; 
+    } else {
+       // If chat has messages, dynamically shrink the app so you can scroll above keyboard.
+       app.style.height = window.innerHeight + 'px';
+    }
     scrollBot(false);
   }
   
@@ -1143,13 +1163,17 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function(){ scrollBot(false); }, 300);
   });
   
-  adjustViewport();
-
   /* ══════════════════════
-     INIT
+     INIT & AUTO-FOCUS
   ══════════════════════ */
   syncEmpty();
   loadSessions();
+  adjustViewport();
+
+  // FIX: Force keyboard to automatically pop up on app launch
+  setTimeout(function() {
+    $inp.focus();
+  }, 400);
 
 }); 
 </script>
