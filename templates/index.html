@@ -49,12 +49,14 @@ html, body {
   background: var(--bg);
 }
 
-/* ══ OVERLAY ═════════════════════════════════════════════ */
+/* ══ OVERLAY (Black Tinted Blur over Chat) ═══════════════ */
 #overlay{
   position:absolute;
   inset:0;
   z-index:900;
-  background:rgba(0,0,0,0.72);
+  background:rgba(0,0,0,0.5); /* Slightly black tinted */
+  -webkit-backdrop-filter:blur(12px); /* Blur effect on the chat */
+  backdrop-filter:blur(12px);
   opacity:0;pointer-events:none;
   -webkit-transition:opacity 0.28s var(--ez);
   transition:opacity 0.28s var(--ez);
@@ -70,8 +72,8 @@ html, body {
   -webkit-flex-shrink:0;flex-shrink:0;
   width:var(--sw);height:100%;
   
-  /* Glassmorphism Blur Effect for Sidebar */
-  background:rgba(10, 10, 10, 0.65);
+  /* Glassmorphism Sidebar Background */
+  background:rgba(12, 12, 12, 0.45);
   -webkit-backdrop-filter:blur(24px);
   backdrop-filter:blur(24px);
   
@@ -418,7 +420,6 @@ html, body {
   -webkit-align-items:flex-end;align-items:flex-end;
   gap:6px;padding:8px 10px;
   
-  /* Blur effect for Input Bar */
   background:rgba(14,14,14,0.75);
   -webkit-backdrop-filter:blur(20px);
   backdrop-filter:blur(20px);
@@ -426,14 +427,12 @@ html, body {
   border:1px solid var(--bord);border-radius:24px;
   box-shadow:0 8px 32px rgba(0,0,0,0.8);
   
-  /* Smooth animation for position changes */
   -webkit-transition:border-color 0.2s var(--ez), bottom 0.4s var(--ez);
   transition:border-color 0.2s var(--ez), bottom 0.4s var(--ez);
 }
 
 #bar:focus-within{border-color:rgba(255,255,255,0.2);}
 
-/* Centered Input Bar for Empty/New Chat */
 body.mt #bar {
   bottom: calc(50% - 60px) !important;
 }
@@ -498,7 +497,6 @@ body.mt #bar {
 #sndbtn svg{fill:#000;width:19px;height:19px;-webkit-transform:translateX(1px);transform:translateX(1px);}
 #sndbtn:disabled{-webkit-animation:none;animation:none;opacity:0.35;pointer-events:none;}
 
-/* scroll btn */
 #scrbtn{
   position:absolute;z-index:100;left:50%;
   bottom:90px;
@@ -516,7 +514,6 @@ body.mt #bar {
 #scrbtn.on{opacity:1;pointer-events:all;-webkit-transform:translateX(-50%) translateY(0);transform:translateX(-50%) translateY(0);}
 #scrbtn svg{fill:currentColor;width:18px;height:18px;}
 
-/* voice toast */
 #vtoast{
   position:absolute;z-index:100;left:50%;
   bottom:82px;
@@ -530,7 +527,6 @@ body.mt #bar {
 }
 #vtoast.on{opacity:1;-webkit-transform:translateX(-50%) translateY(0);transform:translateX(-50%) translateY(0);}
 
-/* ══ KEYFRAMES ═══════════════════════════════════════════ */
 @-webkit-keyframes shimmer{to{background-position:-200% center}}
 @keyframes shimmer{to{background-position:-200% center}}
 @-webkit-keyframes slideUp{from{opacity:0;-webkit-transform:translateY(10px)}to{opacity:1;-webkit-transform:translateY(0)}}
@@ -544,7 +540,6 @@ body.mt #bar {
 @-webkit-keyframes glow{0%,100%{box-shadow:0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 20px rgba(255,255,255,0.35)}}
 @keyframes glow{0%,100%{box-shadow:0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 20px rgba(255,255,255,0.35)}}
 
-/* ══ MOBILE ≤700px ═══════════════════════════════════════ */
 @media(max-width:700px){
 
   #sb{
@@ -554,8 +549,7 @@ body.mt #bar {
     width:82vw !important;max-width:300px !important;min-width:0 !important;
     z-index:1000 !important;
     
-    /* Stronger glassmorphism to guarantee blur on mobile drawer */
-    background:rgba(10, 10, 10, 0.70) !important;
+    background:rgba(12, 12, 12, 0.45) !important;
     -webkit-backdrop-filter:blur(24px) !important;
     backdrop-filter:blur(24px) !important;
 
@@ -699,7 +693,7 @@ body.mt #bar {
 
 <script>
 /* ══════════════════════════════════════════════════════════
-   BLANK_ — v10 — Hardened API & UI State
+   BLANK_ — v11 — Bulletproof History & Overlay Blur
 ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', function() {
   'use strict';
@@ -737,15 +731,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function syncEmpty(){
     var e = msgCount() === 0;
-    
-    /* Toggle body class to trigger bar moving up/down */
     document.body.classList.toggle('mt', e);
-
-    if(e){
-      $wlc.classList.remove('hide');
-    } else {
-      $wlc.classList.add('hide');
-    }
+    if(e){ $wlc.classList.remove('hide'); } 
+    else { $wlc.classList.add('hide'); }
   }
 
   /* ══════════════════════
@@ -754,7 +742,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function openSB(){
     $sb.classList.add('open');
     $ov.classList.add('on');
-    loadSessions(); /* Force refresh when opened */
+    loadSessions(); // Always refresh when opened
   }
   function closeSB(){
     $sb.classList.remove('open');
@@ -766,7 +754,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       var c = $sb.classList.toggle('col');
       document.body.classList.toggle('col', c);
-      loadSessions(); /* Force refresh for desktop too */
+      loadSessions(); // Always refresh
     }
   }
 
@@ -787,38 +775,32 @@ document.addEventListener('DOMContentLoaded', function() {
   }, {passive:false});
 
   /* ══════════════════════
-     SESSIONS (Bulletproof API calls)
+     SESSIONS & API (Bulletproof Json)
   ══════════════════════ */
-  
-  // Safe JSON wrapper to prevent HTML crashes from sleeping servers
-  function fetchSafe(url, options) {
-    return fetch(url, options)
-      .then(function(r) {
-        if (!r.ok) throw new Error('Server returned ' + r.status);
-        return r.text().then(function(text) {
-          try { return JSON.parse(text); } 
-          catch (err) { throw new Error('Invalid JSON response'); }
-        });
+  function fetchJSON(url, options) {
+    return fetch(url, options).then(function(r){
+      if(!r.ok) return {};
+      return r.text().then(function(t){
+        try { return t ? JSON.parse(t) : {}; } catch(e){ return {}; }
       });
+    }).catch(function(){ return {}; });
   }
 
   function loadSessions(){
-    fetchSafe('/sessions', {credentials:'include'})
-      .then(function(d){ renderSessions(d.sessions||[]); })
-      .catch(function(e){ 
-        console.warn('loadSessions Error:', e);
-        // Do not overwrite sidebar if it fails, just leave it as is or show error softly
-      });
+    fetchJSON('/sessions', {credentials:'include'}).then(function(d){
+      // Ensure we always extract an array, even if the API shape changes
+      var arr = Array.isArray(d) ? d : (d.sessions || []);
+      renderSessions(arr);
+    });
   }
 
   function renderSessions(list){
     var f = document.createDocumentFragment();
-    if(!list || !list.length){
+    if(!list || list.length === 0){
       var p = document.createElement('div');
       p.className='sbl-empty'; p.textContent='No chats yet';
       f.appendChild(p);
     } else {
-      // Create session items
       list.forEach(function(s){
         var row = document.createElement('div');
         row.className = 'si' + (s.id===sid ? ' act' : '');
@@ -842,49 +824,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function newChat(){
     if(sid && msgCount()===0){ closeSB(); return; }
-    fetchSafe('/sessions/new', {method:'POST', credentials:'include'})
-      .then(function(d){
-        if(!d) return;
-        sid=d.id; hist=[];
-        clearChat();
-        loadSessions();
-      })
-      .catch(function(e){ console.warn('newChat Error:', e); })
-      .finally(function(){ closeSB(); });
+    fetchJSON('/sessions/new', {method:'POST', credentials:'include'}).then(function(d){
+      if(d && d.id) sid=d.id;
+      else sid=null;
+      hist=[]; clearChat(); loadSessions();
+    }).finally(function(){ closeSB(); });
   }
 
   function loadSession(id){
-    fetchSafe('/sessions/'+id, {credentials:'include'})
-      .then(function(d){
-        if(!d||d.error) return;
-        sid=d.id;
-        // Properly parse history to match what the chat sends
-        hist=(d.messages||[]).map(function(m){ return {role:m.role, content:m.content || m.text || ''}; });
-        
-        clearChat();
-        
-        // Render history visually
-        (d.messages||[]).forEach(function(m){
-          var textContent = m.content || m.text || ''; // Fallback for diff API structures
-          if(m.role==='user') addUserI(textContent);
-          else addBotI(textContent);
-        });
-        
-        syncEmpty();
-        scrollBot(true);
-        loadSessions(); // Highlight active
-      })
-      .catch(function(e){ console.warn('loadSession Error:', e); })
-      .finally(function(){ closeSB(); });
+    fetchJSON('/sessions/'+id, {credentials:'include'}).then(function(d){
+      if(d && d.id) sid=d.id;
+      hist=(d.messages||[]).map(function(m){ return {role:m.role, content:m.content||m.text||''}; });
+      clearChat();
+      (d.messages||[]).forEach(function(m){
+        var txt = m.content || m.text || '';
+        if(m.role==='user') addUserI(txt); else addBotI(txt);
+      });
+      syncEmpty(); scrollBot(true); loadSessions();
+    }).finally(function(){ closeSB(); });
   }
 
   function delSession(id){
-    fetch('/sessions/'+id, {method:'DELETE', credentials:'include'})
-      .then(function(){
-        if(sid===id){ sid=null; hist=[]; clearChat(); }
-        loadSessions();
-      })
-      .catch(function(e){ console.warn('delSession Error:', e); });
+    fetch('/sessions/'+id, {method:'DELETE', credentials:'include'}).then(function(){
+      if(sid===id){ sid=null; hist=[]; clearChat(); }
+      loadSessions();
+    });
   }
 
   $nc.addEventListener('click', newChat);
@@ -945,27 +909,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
       var lid = showSpin();
       
-      fetchSafe('/chat', {
+      fetchJSON('/chat', {
         method:'POST', credentials:'include',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({message:text, history:hist, model:mdl, session_id:sid})
       })
       .then(function(d){
-        var reply = (d.reply||'No response received.').trim();
+        var reply = (d.reply||'').trim();
         removeSpin(lid);
         
-        // Push to local history array
-        hist.push({role:'user', content:text});
-        hist.push({role:'assistant', content:reply});
+        if(reply) {
+          hist.push({role:'user', content:text});
+          hist.push({role:'assistant', content:reply});
+          typeBot(reply);
+        } else {
+          typeBot('Connection lost or empty response.');
+        }
         
-        typeBot(reply);
-        
-        // If this was the first exchange, update sidebar title
-        if(hist.length <= 2) loadSessions();
+        // Always refresh history sidebar immediately after a message is successfully sent!
+        loadSessions(); 
       })
       .catch(function(err){
         removeSpin(lid);
-        typeBot('Connection error: ' + err.message + '. Please check your connection or wait for the server to wake up.');
+        typeBot('An error occurred. Please check your connection.');
       })
       .finally(function(){
         $snd.disabled=false;
@@ -973,10 +939,10 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     if(!sid){
-      fetchSafe('/sessions/new', {method:'POST', credentials:'include'})
-        .then(function(d){ if(d && d.id) { sid=d.id; loadSessions(); } })
-        .catch(function(){}) // Failsafe fallback
-        .finally(doSend);
+      fetchJSON('/sessions/new', {method:'POST', credentials:'include'}).then(function(d){
+        if(d && d.id) sid=d.id;
+        doSend();
+      });
     } else {
       doSend();
     }
