@@ -835,7 +835,7 @@ function syncEmpty() {
   var e = msgCount() === 0;
   document.body.classList.toggle('mt', e);
   $wlc.classList.toggle('hide', !e);
-  $inp.placeholder = e ? 'Ask BLANK_' : 'Message…';
+  $inp.placeholder = e ? 'Ask BLANK_' : 'Reply to BLANK_';
 }
 
 /* ══════════════════════════════
