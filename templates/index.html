@@ -9,116 +9,125 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <title>BLANK_</title>
 <style>
-/* ══ TOKENS ══════════════════════════════════════════════ */
-:root {
-  --sw:   280px;
-  --stw:  56px;
-  --bg:   #000;
-  --sbg:  #0a0a0a;
-  --bord: rgba(255,255,255,0.07);
-  --font: -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
-  --ez:   cubic-bezier(0.25,0.46,0.45,0.94);
-  --ezs:  cubic-bezier(0.34,1.56,0.64,1);
-}
-
-*,*::before,*::after{
-  box-sizing:border-box;margin:0;padding:0;
-  -webkit-tap-highlight-color:transparent;
-  -webkit-font-smoothing:antialiased;
-}
-
 /*
-  KEY LAYOUT STRATEGY:
-  - html/body fill the full INITIAL viewport height and never resize.
-  - #app is absolute, pinned to the full initial viewport.
-  - #bar is position:fixed — it stays anchored to the visual viewport
-    so the keyboard NEVER pushes it or the chat up.
-  - #chat has bottom padding = bar height so content is never hidden.
-  - NO JavaScript viewport-resize hacks that shift the layout.
+  ═══════════════════════════════════════════════════════════
+  LAYOUT STRATEGY — read before touching anything
+  ═══════════════════════════════════════════════════════════
+
+  PROBLEM: On Android WebView, when the soft keyboard opens:
+    1. The layout viewport shrinks to exclude keyboard height.
+    2. position:fixed elements re-anchor to the NEW (smaller) layout
+       viewport top — so they appear to "jump up".
+    3. Elements sized with height:100% or flex:1 also shrink.
+    4. Result: everything shifts up, content hidden, can't scroll.
+
+  SOLUTION — Three-layer approach:
+  ─────────────────────────────────
+  Layer 1 — SHELL (#app):
+    • position:absolute on #app, locked to body (which is height:100%
+      from the INITIAL paint and never changes because body has
+      overflow:hidden and no dynamic resizing).
+    • This gives us a stable coordinate space that the keyboard cannot
+      shrink.
+
+  Layer 2 — CHAT (#chat):
+    • position:absolute, fills #main completely (top:0 bottom:0).
+    • padding-bottom is set large enough to always clear the bar.
+    • overflow-y:auto — always independently scrollable.
+    • NEVER resized by JS. Its scroll is not affected by keyboard.
+
+  Layer 3 — INPUT BAR (#bar):
+    • position:fixed, anchored to bottom of VISUAL viewport.
+    • The visualViewport API tells us the exact y offset and height of
+      the visible area even when the keyboard is open.
+    • We use JS to set #bar's `bottom` to always be at the top of the
+      keyboard — so it stays glued to the keyboard, not jumping around.
+    • This is the ONLY correct cross-browser/WebView solution.
+
+  SCROLL FIX:
+    • #chat is position:absolute with a fixed height (fills #main).
+    • Its scrollHeight is always the full content height.
+    • The keyboard does not affect it — it scrolls freely at all times.
+    • We add enough padding-bottom so the last message is never hidden
+      behind the bar even when keyboard is open.
+  ═══════════════════════════════════════════════════════════
 */
-html {
-  width: 100%;
-  height: 100%;
-  background: var(--bg);
-  /* Prevent rubber-band scroll on iOS revealing white space */
-  overflow: hidden;
-}
-body {
-  width: 100%;
-  height: 100%;
-  margin: 0; padding: 0;
-  background: var(--bg);
-  color: #fff;
-  font-family: var(--font);
-  overflow: hidden;
-  /* Do NOT use position:fixed — breaks Android WebView */
+
+:root {
+  --sw:    280px;
+  --stw:   56px;
+  --bg:    #000;
+  --bord:  rgba(255,255,255,0.07);
+  --font:  -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
+  --ez:    cubic-bezier(0.25,0.46,0.45,0.94);
+  --ezs:   cubic-bezier(0.34,1.56,0.64,1);
+  --bar-h: 68px;  /* approximate bar height — used for padding-bottom of chat */
 }
 
-/* ══ APP SHELL ════════════════════════════════════════════
-   position:absolute fills the body completely.
-   height:100% means it matches the body's locked height,
-   NOT the visual viewport — so keyboard opening does nothing.
-══════════════════════════════════════════════════════════ */
+*,*::before,*::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+html {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg); color: #fff; font-family: var(--font);
+  /* NO position:fixed — breaks Android WebView black screen */
+  /* height:100% locks to initial paint height, never resizes */
+}
+
+/* ── APP: locked absolute shell ── */
 #app {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  display: -webkit-box;
-  display: -webkit-flex;
   display: flex;
   overflow: hidden;
   background: var(--bg);
-  /* No dynamic height JS — height is always 100% of body */
 }
 
-/* ══ OVERLAY ═════════════════════════════════════════════ */
+/* ── OVERLAY ── */
 #overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 900;
-  background: rgba(0,0,0,0.55);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  opacity: 0;
-  pointer-events: none;
-  -webkit-transition: opacity 0.28s var(--ez);
+  position: absolute; inset: 0; z-index: 900;
+  background: rgba(0,0,0,0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  opacity: 0; pointer-events: none;
   transition: opacity 0.28s var(--ez);
 }
 #overlay.on { opacity: 1; pointer-events: all; }
 
-/* ══ SIDEBAR ═════════════════════════════════════════════ */
+/* ══════════════════════════════
+   SIDEBAR
+══════════════════════════════ */
 #sb {
-  position: relative;
-  z-index: 1000;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-flex-direction: column; flex-direction: column;
-  -webkit-flex-shrink: 0; flex-shrink: 0;
+  position: relative; z-index: 1000;
+  display: flex; flex-direction: column; flex-shrink: 0;
   width: var(--sw); height: 100%;
-  background: rgba(12,12,12,0.5);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
+  background: rgba(10,10,10,0.96);
   border-right: 1px solid rgba(255,255,255,0.08);
   overflow: hidden;
-  -webkit-transition: width 0.32s var(--ez);
   transition: width 0.32s var(--ez);
 }
 #sb.col { width: var(--stw); }
 #sb.col .sbf { display: none; }
-#sb.col .sbs { display: -webkit-box; display: -webkit-flex; display: flex; }
+#sb.col .sbs { display: flex; }
 
-.sbf {
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-flex-direction: column; flex-direction: column;
-  height: 100%; min-height: 0;
-}
+.sbf { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
 .sbh {
-  -webkit-flex-shrink: 0; flex-shrink: 0;
+  flex-shrink: 0;
   padding: 20px 14px 14px;
   padding-top: max(20px, calc(14px + env(safe-area-inset-top, 0px)));
   border-bottom: 1px solid var(--bord);
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-flex-direction: column; flex-direction: column;
-  gap: 10px;
+  display: flex; flex-direction: column; gap: 10px;
 }
 
 .sbbrand {
@@ -128,83 +137,65 @@ body {
   background-size: 200% auto;
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
-  -webkit-animation: shimmer 8s linear infinite;
   animation: shimmer 8s linear infinite;
 }
 
 .ncbtn {
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  gap: 8px; width: 100%;
-  padding: 13px;
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 13px;
   background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
   color: #bbb; font-family: var(--font);
   font-size: 0.75rem; font-weight: 600;
   letter-spacing: 0.1em; text-transform: uppercase;
-  cursor: pointer; -webkit-flex-shrink: 0; flex-shrink: 0;
-  min-height: 48px;
-  -webkit-transition: background 0.2s var(--ez), color 0.2s var(--ez);
+  cursor: pointer; flex-shrink: 0; min-height: 48px;
   transition: background 0.2s var(--ez), color 0.2s var(--ez);
   -webkit-appearance: none; appearance: none; outline: none;
 }
-.ncbtn svg { fill: currentColor; width: 15px; height: 15px; -webkit-flex-shrink: 0; flex-shrink: 0; }
-.ncbtn:hover { background: rgba(255,255,255,0.12); color: #fff; }
-.ncbtn:active { background: rgba(255,255,255,0.16); }
+.ncbtn svg { fill: currentColor; width: 15px; height: 15px; flex-shrink: 0; }
+.ncbtn:hover  { background: rgba(255,255,255,0.12); color: #fff; }
+.ncbtn:active { background: rgba(255,255,255,0.18); }
 
 .sbl {
-  -webkit-flex: 1; flex: 1;
-  overflow-y: auto; overflow-x: hidden;
+  flex: 1; overflow-y: auto; overflow-x: hidden;
   padding: 6px 8px;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-flex-direction: column; flex-direction: column;
-  gap: 2px;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 2px;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
 }
 .sbl::-webkit-scrollbar { width: 3px; }
 .sbl::-webkit-scrollbar-thumb { background: #222; border-radius: 4px; }
 .sbl-empty { color: #555; font-size: 0.7rem; padding: 14px 8px; letter-spacing: 0.08em; }
 
 .si {
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  gap: 8px; padding: 12px 10px; border-radius: 8px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 10px; border-radius: 8px;
   cursor: pointer; min-height: 48px;
-  -webkit-transition: background 0.16s var(--ez);
   transition: background 0.16s var(--ez);
   -webkit-user-select: none; user-select: none;
 }
-.si:hover { background: rgba(255,255,255,0.05); }
-.si.act  { background: rgba(255,255,255,0.10); }
+.si:hover  { background: rgba(255,255,255,0.05); }
+.si.act    { background: rgba(255,255,255,0.10); }
 .si:active { background: rgba(255,255,255,0.14); }
 .si-t {
-  -webkit-flex: 1; flex: 1;
-  font-size: 0.8rem; color: #777;
+  flex: 1; font-size: 0.8rem; color: #777;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  -webkit-transition: color 0.16s var(--ez); transition: color 0.16s var(--ez);
+  transition: color 0.16s var(--ez);
 }
 .si.act .si-t { color: #fff; }
 .si-d {
-  -webkit-flex-shrink: 0; flex-shrink: 0;
-  background: transparent; border: none; color: #444;
-  padding: 7px; cursor: pointer; border-radius: 6px;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  -webkit-justify-content: center; justify-content: center;
-  -webkit-transition: color 0.18s var(--ez); transition: color 0.18s var(--ez);
+  flex-shrink: 0; background: transparent; border: none;
+  color: #444; padding: 7px; cursor: pointer; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.18s var(--ez);
   min-width: 36px; min-height: 36px;
 }
 .si-d svg { fill: currentColor; width: 16px; height: 16px; display: block; }
-.si-d:hover { color: #ff4444; }
+.si-d:hover  { color: #ff4444; }
 .si-d:active { opacity: 0.7; }
 
 .sbfoot {
-  -webkit-flex-shrink: 0; flex-shrink: 0;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  -webkit-justify-content: space-between; justify-content: space-between;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px;
   padding-bottom: max(12px, calc(12px + env(safe-area-inset-bottom, 0px)));
   border-top: 1px solid var(--bord);
@@ -212,228 +203,197 @@ body {
 .sbuser {
   font-size: 0.7rem; color: #555;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  -webkit-flex: 1; flex: 1; min-width: 0; margin-right: 8px;
+  flex: 1; min-width: 0; margin-right: 8px;
 }
 .logout {
-  -webkit-flex-shrink: 0; flex-shrink: 0;
-  display: -webkit-inline-box; display: -webkit-inline-flex; display: inline-flex;
-  -webkit-align-items: center; align-items: center;
+  flex-shrink: 0; display: inline-flex; align-items: center;
   padding: 6px 10px; background: transparent;
   border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
-  color: #555; font-family: var(--font); font-size: 0.56rem;
-  letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none;
-  -webkit-transition: color 0.2s, border-color 0.2s;
+  color: #555; font-family: var(--font);
+  font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase;
+  text-decoration: none;
   transition: color 0.2s, border-color 0.2s;
 }
 .logout:hover { color: #bbb; border-color: rgba(255,255,255,0.2); }
 
-/* strip (desktop collapsed) */
+/* strip */
 .sbs {
-  display: none;
-  -webkit-flex-direction: column; flex-direction: column;
-  -webkit-align-items: center; align-items: center;
+  display: none; flex-direction: column; align-items: center;
   padding: 14px 0; gap: 14px; height: 100%;
 }
 .sbs-btn {
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  -webkit-justify-content: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   width: 36px; height: 36px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
-  color: #666; cursor: pointer; -webkit-flex-shrink: 0; flex-shrink: 0;
-  -webkit-transition: background 0.2s, color 0.2s; transition: background 0.2s, color 0.2s;
+  color: #666; cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
 }
 .sbs-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 .sbs-btn svg { fill: currentColor; width: 16px; height: 16px; }
 .sbs-brand {
-  writing-mode: vertical-rl;
-  -webkit-transform: rotate(180deg); transform: rotate(180deg);
-  font-size: 0.52rem; font-weight: 800; letter-spacing: 0.25em; text-transform: uppercase;
-  background: linear-gradient(110deg,#555 30%,#fff 50%,#555 70%); background-size: 200% auto;
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  -webkit-animation: shimmer 8s linear infinite; animation: shimmer 8s linear infinite;
-  -webkit-flex: 1; flex: 1;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  font-size: 0.52rem; font-weight: 800;
+  letter-spacing: 0.25em; text-transform: uppercase;
+  background: linear-gradient(110deg,#555 30%,#fff 50%,#555 70%);
+  background-size: 200% auto;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 8s linear infinite; flex: 1;
 }
 
-/* ══ MAIN PANEL ══════════════════════════════════════════ */
+/* ══════════════════════════════
+   MAIN PANEL
+══════════════════════════════ */
 #main {
-  -webkit-flex: 1; flex: 1;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-flex-direction: column; flex-direction: column;
-  min-width: 0; height: 100%; position: relative; z-index: 1;
-  overflow: hidden; /* clip children, never the panel itself */
+  flex: 1; min-width: 0; height: 100%;
+  position: relative; overflow: hidden; z-index: 1;
 }
 
-/* ══ HEADER ══════════════════════════════════════════════ */
+/* ── header ── */
 #hdr {
-  /* absolute so it floats above chat, doesn't push layout */
   position: absolute; top: 0; left: 0; right: 0; z-index: 50;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  gap: 10px;
+  display: flex; align-items: center; gap: 10px;
   padding: 14px 16px 12px;
   padding-top: max(14px, calc(14px + env(safe-area-inset-top, 0px)));
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.72);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255,255,255,0.03);
 }
 
 #menubtn {
-  -webkit-flex-shrink: 0; flex-shrink: 0;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  -webkit-justify-content: center; justify-content: center;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
   min-width: 44px; min-height: 44px;
-  background: transparent; border: none; color: #555; cursor: pointer; border-radius: 10px;
-  -webkit-transition: color 0.2s var(--ez); transition: color 0.2s var(--ez);
+  background: transparent; border: none; color: #555;
+  cursor: pointer; border-radius: 10px;
+  transition: color 0.2s var(--ez);
 }
-#menubtn:hover { color: #fff; }
+#menubtn:hover  { color: #fff; }
 #menubtn:active { opacity: 0.7; }
 #menubtn svg { fill: currentColor; width: 22px; height: 22px; display: block; }
 
-.hc {
-  -webkit-flex: 1; flex: 1;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-flex-direction: column; flex-direction: column;
-  -webkit-align-items: center; align-items: center;
-}
+.hc { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .htitle {
-  font-size: 1.35rem; font-weight: 800; letter-spacing: 0.3em; text-transform: uppercase;
-  background: linear-gradient(110deg,#555 30%,#fff 50%,#555 70%); background-size: 200% auto;
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  -webkit-animation: shimmer 8s linear infinite; animation: shimmer 8s linear infinite;
+  font-size: 1.35rem; font-weight: 800;
+  letter-spacing: 0.3em; text-transform: uppercase;
+  background: linear-gradient(110deg,#555 30%,#fff 50%,#555 70%);
+  background-size: 200% auto;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 8s linear infinite;
 }
 .hsub { font-size: 0.5rem; letter-spacing: 0.22em; color: #444; text-transform: uppercase; margin-top: 1px; }
 
 .mpill { position: relative; margin-top: 6px; }
 .mtrig {
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  gap: 4px; padding: 5px 10px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
-  color: #666; font-family: var(--font); font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 4px; padding: 5px 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
+  color: #666; font-family: var(--font);
+  font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase;
   cursor: pointer; white-space: nowrap;
   -webkit-user-select: none; user-select: none;
-  -webkit-transition: color 0.2s, border-color 0.2s; transition: color 0.2s, border-color 0.2s;
+  transition: color 0.2s, border-color 0.2s;
 }
 .mtrig:hover { color: #bbb; border-color: rgba(255,255,255,0.2); }
-.mtrig svg {
-  fill: currentColor; width: 10px; height: 10px;
-  -webkit-transition: -webkit-transform 0.22s var(--ez);
-  transition: transform 0.22s var(--ez);
-}
-.mtrig.open svg { -webkit-transform: rotate(180deg); transform: rotate(180deg); }
+.mtrig svg { fill: currentColor; width: 10px; height: 10px; transition: transform 0.22s var(--ez); }
+.mtrig.open svg { transform: rotate(180deg); }
 
 .mdrop {
   position: fixed; z-index: 9999;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-flex-direction: column; flex-direction: column;
-  gap: 2px; padding: 6px; min-width: 170px;
+  display: flex; flex-direction: column; gap: 2px; padding: 6px; min-width: 170px;
   background: #141414; border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.9);
   opacity: 0; pointer-events: none;
-  -webkit-transform: translateY(-6px); transform: translateY(-6px);
-  -webkit-transition: opacity 0.22s var(--ez), -webkit-transform 0.22s var(--ez);
+  transform: translateY(-6px);
   transition: opacity 0.22s var(--ez), transform 0.22s var(--ez);
 }
-.mdrop.open { opacity: 1; pointer-events: all; -webkit-transform: translateY(0); transform: translateY(0); }
+.mdrop.open { opacity: 1; pointer-events: all; transform: translateY(0); }
 .mopt {
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  -webkit-justify-content: space-between; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   padding: 10px 12px; border-radius: 9px;
-  font-family: var(--font); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+  font-family: var(--font); font-size: 0.72rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
   color: #666; cursor: pointer;
-  -webkit-transition: background 0.15s, color 0.15s; transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 .mopt:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.mopt.sel { color: #fff; }
+.mopt.sel   { color: #fff; }
 .mdot {
   width: 7px; height: 7px; border-radius: 50%;
   background: #00ff87; box-shadow: 0 0 8px rgba(0,255,135,0.8);
-  opacity: 0; -webkit-flex-shrink: 0; flex-shrink: 0;
-  -webkit-transition: opacity 0.18s; transition: opacity 0.18s;
+  opacity: 0; flex-shrink: 0; transition: opacity 0.18s;
 }
 .mopt.sel .mdot { opacity: 1; }
-.hr { -webkit-flex-shrink: 0; flex-shrink: 0; min-width: 44px; }
+.hr { flex-shrink: 0; min-width: 44px; }
 
-/* ══ WELCOME / READY ══════════════════════════════════════
-   Absolutely positioned inside #main, vertically centered.
-   It does NOT interact with chat layout at all.
-══════════════════════════════════════════════════════════ */
+/* ══════════════════════════════
+   WELCOME ("Ready.")
+   Absolutely positioned in #main — never in the chat flow.
+   Shown/hidden by opacity so it never causes layout shifts.
+══════════════════════════════ */
 #wlc {
   position: absolute;
-  top: 42%;
-  left: 50%;
-  -webkit-transform: translate(-50%, -50%);
+  top: 42%; left: 50%;
   transform: translate(-50%, -50%);
-  text-align: center;
-  pointer-events: none;
+  text-align: center; pointer-events: none;
   -webkit-user-select: none; user-select: none;
-  z-index: 10;
-  width: 100%;
-  /* visible by default, hidden via .hide */
+  z-index: 10; width: 100%;
   opacity: 1;
-  -webkit-transition: opacity 0.3s var(--ez);
   transition: opacity 0.3s var(--ez);
 }
-#wlc.hide {
-  opacity: 0;
-  pointer-events: none;
-}
+#wlc.hide { opacity: 0; }
 #wlc span {
   font-size: 2rem; font-weight: 600; color: #fff; letter-spacing: -0.01em;
-  -webkit-animation: textGlow 3s ease-in-out infinite;
   animation: textGlow 3s ease-in-out infinite;
 }
 
-/* ══ CHAT ══════════════════════════════════════════════════
-   SCROLL FIX:
-   #chat fills the full height of #main (100%).
-   We give it padding-top to clear the header, and padding-bottom
-   to clear the fixed input bar. It is always scrollable — no JS
-   overrides its height or overflow.
-══════════════════════════════════════════════════════════ */
+/* ══════════════════════════════
+   CHAT SCROLL AREA
+   ─────────────────────────────
+   KEY DECISIONS:
+   • position:absolute fills #main completely, top:0 to bottom:0.
+     Its height is ALWAYS the full #main height regardless of keyboard.
+   • overflow-y:auto — always independently scrollable.
+   • padding-bottom is extra large (200px) so the last message is
+     never hidden behind the input bar even with keyboard open.
+   • We NEVER change its height or position via JS.
+   • -webkit-overflow-scrolling:touch gives momentum scrolling and
+     allows scroll to the very top on iOS.
+══════════════════════════════ */
 #chat {
-  /* Fill full height so it's always independently scrollable */
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
 
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-flex-direction: column; flex-direction: column;
+  display: flex; flex-direction: column;
   gap: 26px;
 
-  /* Top: clear the floating header (~88px on desktop) */
-  padding-top: 110px;
-  /* Bottom: clear the fixed input bar (~90px) */
-  padding-bottom: 100px;
+  padding-top: 110px;   /* clear header */
+  padding-bottom: 200px; /* generous — clears bar even with keyboard */
   padding-left: 16px; padding-right: 16px;
 
-  overflow-y: auto;   /* ← always scrollable */
+  overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
   touch-action: pan-y;
 }
 #chat::-webkit-scrollbar { width: 4px; }
-#chat::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 4px; }
+#chat::-webkit-scrollbar-thumb { background: #1c1c1c; border-radius: 4px; }
 
 /* messages */
 .msg {
   position: relative;
-  max-width: 82%;
-  width: -webkit-fit-content; width: fit-content;
+  max-width: 82%; width: fit-content;
   line-height: 1.85; padding-bottom: 4px; font-size: 1rem;
-  /* Shrink messages so they don't push beyond their natural size */
-  -webkit-flex-shrink: 0; flex-shrink: 0;
+  flex-shrink: 0; /* never compress vertically */
 }
 .mt-text { display: block; white-space: pre-wrap; word-break: break-word; letter-spacing: 0.01em; }
 
 .msg.usr {
-  -webkit-align-self: flex-end; align-self: flex-end;
-  -webkit-animation: slideUp 0.28s var(--ez) both;
+  align-self: flex-end;
   animation: slideUp 0.28s var(--ez) both;
 }
 .msg.usr .mt-text {
@@ -441,8 +401,7 @@ body {
   border-radius: 18px 18px 4px 18px; padding: 10px 16px; display: inline-block;
 }
 .msg.bot {
-  -webkit-align-self: flex-start; align-self: flex-start;
-  -webkit-animation: slideUp 0.28s var(--ez) both;
+  align-self: flex-start;
   animation: slideUp 0.28s var(--ez) both;
 }
 .blbl {
@@ -452,8 +411,9 @@ body {
 
 .cpbtn {
   position: absolute; right: 0; bottom: -20px;
-  background: transparent; border: none; padding: 6px; cursor: pointer; opacity: 0.35;
-  -webkit-transition: opacity 0.2s; transition: opacity 0.2s;
+  background: transparent; border: none; padding: 6px;
+  cursor: pointer; opacity: 0.35;
+  transition: opacity 0.2s;
 }
 .cpbtn svg { fill: #777; width: 14px; height: 14px; display: block; }
 .cpbtn:active { opacity: 1; }
@@ -463,194 +423,157 @@ body {
   border: 2px solid rgba(255,255,255,0.08);
   border-top-color: rgba(255,255,255,0.5);
   border-radius: 50%; margin: 4px 0 2px 2px;
-  -webkit-animation: spin 0.75s linear infinite;
   animation: spin 0.75s linear infinite;
 }
-
 .dots {
-  display: -webkit-inline-box; display: -webkit-inline-flex; display: inline-flex;
-  -webkit-align-items: center; align-items: center;
+  display: inline-flex; align-items: center;
   gap: 4px; height: 1em; vertical-align: middle; margin-left: 2px;
 }
 .dots span {
   width: 4px; height: 4px; border-radius: 50%;
   background: rgba(255,255,255,0.4); display: inline-block;
-  -webkit-animation: dotB 1.1s ease-in-out infinite;
   animation: dotB 1.1s ease-in-out infinite;
 }
-.dots span:nth-child(2) { -webkit-animation-delay: 0.18s; animation-delay: 0.18s; }
-.dots span:nth-child(3) { -webkit-animation-delay: 0.36s; animation-delay: 0.36s; }
+.dots span:nth-child(2) { animation-delay: 0.18s; }
+.dots span:nth-child(3) { animation-delay: 0.36s; }
 
-/* ══ INPUT BAR ═════════════════════════════════════════════
-   KEY: position:fixed anchors to the VISUAL viewport.
-   When the keyboard opens on Android/iOS, the visual viewport
-   shrinks but position:fixed elements stay glued to its bottom.
-   This means the bar rises with the keyboard — correct behaviour.
-   The chat content does NOT move because #chat is absolute with
-   fixed padding-bottom, independent of the visual viewport.
+/* ══════════════════════════════
+   INPUT BAR
+   ─────────────────────────────
+   position:fixed — anchors to the layout viewport bottom.
 
-   DESKTOP: centered in the area right of the sidebar.
-   MOBILE:  full width with safe-area insets.
-══════════════════════════════════════════════════════════ */
+   ANDROID WEBVIEW KEYBOARD FIX:
+   On Android WebView, when keyboard opens, the layout viewport
+   shrinks. Fixed elements re-anchor to the new viewport bottom,
+   which IS the keyboard top. So the bar naturally floats above
+   the keyboard. This is correct behaviour — no JS needed for the bar.
+
+   However, we use the visualViewport API to detect keyboard open
+   and adjust ONLY the chat's scroll position, not any heights.
+
+   DESKTOP: centered in space right of sidebar.
+   MOBILE: full width.
+══════════════════════════════ */
 #bar {
-  position: fixed;
-  z-index: 200;
-  /* Desktop default */
+  position: fixed; z-index: 200;
+
+  /* desktop */
   left: calc(var(--sw) + (100vw - var(--sw)) / 2);
-  -webkit-transform: translateX(-50%);
   transform: translateX(-50%);
   width: min(700px, calc(100vw - var(--sw) - 48px));
-  bottom: max(18px, env(safe-area-inset-bottom, 0px));
+  bottom: max(18px, env(safe-area-inset-bottom, 18px));
 
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: flex-end; align-items: flex-end;
-  gap: 6px; padding: 8px 10px;
+  display: flex; align-items: flex-end; gap: 6px; padding: 8px 10px;
 
-  background: rgba(14,14,14,0.82);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+  background: rgba(12,12,12,0.94);
   border: 1px solid var(--bord); border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.9);
 
-  -webkit-transition: border-color 0.2s var(--ez);
   transition: border-color 0.2s var(--ez);
-  /* No bottom transition — let it follow the visual viewport instantly */
+  /* NO bottom transition on mobile — needs to follow keyboard instantly */
 }
-#bar:focus-within { border-color: rgba(255,255,255,0.2); }
+#bar:focus-within { border-color: rgba(255,255,255,0.22); }
 
-/* Sidebar collapsed — shift bar */
 body.col #bar {
   left: calc(var(--stw) + (100vw - var(--stw)) / 2);
   width: min(700px, calc(100vw - var(--stw) - 48px));
 }
 
-/* Empty state — bar floats to vertical center */
-body.mt #bar {
-  bottom: 40%;
-}
+/* empty state: bar floats to center */
+body.mt #bar { bottom: 40%; }
 
 #inp {
-  -webkit-flex: 1; flex: 1;
-  min-width: 0; background: transparent; border: none; color: #fff;
+  flex: 1; min-width: 0;
+  background: transparent; border: none; color: #fff;
   font-family: var(--font); font-size: 1rem; line-height: 1.5;
   padding: 7px 8px; resize: none; max-height: 160px; overflow-y: auto;
   -webkit-user-select: text; user-select: text;
   outline: none !important; box-shadow: none !important;
 }
 #inp::placeholder { color: #3a3a3a; }
-#inp:focus, #inp:active { outline: none !important; box-shadow: none !important; }
+#inp:focus { outline: none !important; }
 
 .ibtn {
-  -webkit-flex-shrink: 0; flex-shrink: 0;
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  -webkit-justify-content: center; justify-content: center;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
   width: 44px; height: 44px; border-radius: 50%; border: none;
   cursor: pointer; background: transparent;
-  -webkit-transition: -webkit-transform 0.18s var(--ezs);
   transition: transform 0.18s var(--ezs);
   -webkit-appearance: none; appearance: none; outline: none;
 }
 .ibtn:active { opacity: 0.7; }
 
 #micbtn { color: #555; }
-#micbtn svg { fill: currentColor; width: 20px; height: 20px; -webkit-transition: fill 0.2s; transition: fill 0.2s; }
+#micbtn svg { fill: currentColor; width: 20px; height: 20px; transition: fill 0.2s; }
 #micbtn:hover svg { fill: #bbb; }
 #micbtn.lst { background: rgba(255,50,50,0.12); color: #ff4444; }
-#micbtn.lst svg { -webkit-animation: pulse 1s ease-in-out infinite; animation: pulse 1s ease-in-out infinite; }
+#micbtn.lst svg { animation: pulse 1s ease-in-out infinite; }
 
-#sndbtn {
-  background: #fff;
-  -webkit-animation: glow 3s ease-in-out infinite;
-  animation: glow 3s ease-in-out infinite;
-}
-#sndbtn:hover { -webkit-transform: scale(1.08); transform: scale(1.08); }
-#sndbtn:active { -webkit-transform: scale(0.92); transform: scale(0.92); }
-#sndbtn svg { fill: #000; width: 19px; height: 19px; -webkit-transform: translateX(1px); transform: translateX(1px); }
-#sndbtn:disabled { -webkit-animation: none; animation: none; opacity: 0.35; pointer-events: none; }
+#sndbtn { background: #fff; animation: glow 3s ease-in-out infinite; }
+#sndbtn:hover  { transform: scale(1.08); }
+#sndbtn:active { transform: scale(0.92); }
+#sndbtn svg { fill: #000; width: 19px; height: 19px; transform: translateX(1px); }
+#sndbtn:disabled { animation: none; opacity: 0.35; pointer-events: none; }
 
-/* ══ SCROLL BTN & VOICE TOAST ════════════════════════════ */
+/* scroll-to-bottom button */
 #scrbtn {
-  position: fixed; z-index: 100; left: 50%;
+  position: fixed; z-index: 150; left: 50%;
   bottom: 90px;
-  -webkit-transform: translateX(-50%) translateY(12px);
   transform: translateX(-50%) translateY(12px);
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-align-items: center; align-items: center;
-  -webkit-justify-content: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   width: 38px; height: 38px; border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.1); background: rgba(24,24,24,0.95);
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(20,20,20,0.96);
   color: #888; cursor: pointer;
   opacity: 0; pointer-events: none;
-  -webkit-transition: opacity 0.25s var(--ez), -webkit-transform 0.25s var(--ez);
   transition: opacity 0.25s var(--ez), transform 0.25s var(--ez);
 }
-#scrbtn.on {
-  opacity: 1; pointer-events: all;
-  -webkit-transform: translateX(-50%) translateY(0);
-  transform: translateX(-50%) translateY(0);
-}
+#scrbtn.on { opacity: 1; pointer-events: all; transform: translateX(-50%) translateY(0); }
 #scrbtn svg { fill: currentColor; width: 18px; height: 18px; }
 
+/* voice toast */
 #vtoast {
-  position: fixed; z-index: 100; left: 50%;
-  bottom: 82px;
-  -webkit-transform: translateX(-50%) translateY(8px);
+  position: fixed; z-index: 150; left: 50%; bottom: 82px;
   transform: translateX(-50%) translateY(8px);
   padding: 5px 14px; border-radius: 20px;
   background: rgba(255,40,40,0.12); border: 1px solid rgba(255,80,80,0.25);
   color: #ff6666; font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
   opacity: 0; pointer-events: none;
-  -webkit-transition: opacity 0.22s var(--ez), -webkit-transform 0.22s var(--ez);
   transition: opacity 0.22s var(--ez), transform 0.22s var(--ez);
 }
-#vtoast.on {
-  opacity: 1;
-  -webkit-transform: translateX(-50%) translateY(0);
-  transform: translateX(-50%) translateY(0);
-}
+#vtoast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* ══ KEYFRAMES ═══════════════════════════════════════════ */
-@-webkit-keyframes shimmer { to { background-position: -200% center; } }
-@keyframes shimmer { to { background-position: -200% center; } }
-@-webkit-keyframes slideUp { from { opacity: 0; -webkit-transform: translateY(10px); } to { opacity: 1; -webkit-transform: translateY(0); } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@-webkit-keyframes spin { to { -webkit-transform: rotate(360deg); } }
-@keyframes spin { to { transform: rotate(360deg); } }
-@-webkit-keyframes dotB { 0%,60%,100% { opacity: 0.2; -webkit-transform: translateY(0); } 30% { opacity: 1; -webkit-transform: translateY(-4px); } }
-@keyframes dotB { 0%,60%,100% { opacity: 0.2; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-4px); } }
-@-webkit-keyframes pulse { 0%,100% { opacity: 1; -webkit-transform: scale(1); } 50% { opacity: 0.5; -webkit-transform: scale(0.88); } }
-@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.88); } }
-@-webkit-keyframes glow { 0%,100% { box-shadow: 0 0 0 rgba(255,255,255,0); } 50% { box-shadow: 0 0 20px rgba(255,255,255,0.35); } }
-@keyframes glow { 0%,100% { box-shadow: 0 0 0 rgba(255,255,255,0); } 50% { box-shadow: 0 0 20px rgba(255,255,255,0.35); } }
-@-webkit-keyframes textGlow { 0%,100% { text-shadow: 0 0 0 rgba(255,255,255,0); } 50% { text-shadow: 0 0 20px rgba(255,255,255,0.5); } }
-@keyframes textGlow { 0%,100% { text-shadow: 0 0 0 rgba(255,255,255,0); } 50% { text-shadow: 0 0 20px rgba(255,255,255,0.5); } }
+/* ══════════════════════════════
+   KEYFRAMES
+══════════════════════════════ */
+@keyframes shimmer  { to { background-position: -200% center; } }
+@keyframes slideUp  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin     { to { transform: rotate(360deg); } }
+@keyframes dotB     { 0%,60%,100% { opacity:0.2; transform:translateY(0); } 30% { opacity:1; transform:translateY(-4px); } }
+@keyframes pulse    { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(0.88); } }
+@keyframes glow     { 0%,100% { box-shadow:0 0 0 rgba(255,255,255,0); } 50% { box-shadow:0 0 20px rgba(255,255,255,0.35); } }
+@keyframes textGlow { 0%,100% { text-shadow:0 0 0 rgba(255,255,255,0); } 50% { text-shadow:0 0 20px rgba(255,255,255,0.5); } }
 
-/* ══ MOBILE ≤700px ═══════════════════════════════════════ */
+/* ══════════════════════════════
+   MOBILE ≤ 700px
+══════════════════════════════ */
 @media (max-width: 700px) {
 
-  /* Sidebar: slide-over drawer */
   #sb {
     position: fixed !important;
     top: 0 !important; left: 0 !important;
     height: 100% !important;
     width: min(82vw, 300px) !important;
     z-index: 1000 !important;
-    background: rgba(10,10,10,0.85) !important;
-    -webkit-transform: translate3d(-110%, 0, 0) !important;
+    background: rgba(8,8,8,0.97) !important;
     transform: translate3d(-110%, 0, 0) !important;
-    -webkit-transition: -webkit-transform 0.35s cubic-bezier(0.1,0.9,0.2,1) !important;
     transition: transform 0.35s cubic-bezier(0.1,0.9,0.2,1) !important;
-    box-shadow: 8px 0 40px rgba(0,0,0,0.85);
+    box-shadow: 8px 0 40px rgba(0,0,0,0.9);
   }
-  #sb.open {
-    -webkit-transform: translate3d(0, 0, 0) !important;
-    transform: translate3d(0, 0, 0) !important;
-  }
-  /* Always show full panel on mobile */
-  #sb .sbf { display: -webkit-box !important; display: -webkit-flex !important; display: flex !important; }
-  #sb .sbs { display: none !important; }
-  #sb.col .sbf { display: -webkit-box !important; display: -webkit-flex !important; display: flex !important; }
+  #sb.open { transform: translate3d(0, 0, 0) !important; }
+  #sb .sbf     { display: flex !important; }
+  #sb .sbs     { display: none !important; }
+  #sb.col .sbf { display: flex !important; }
   #sb.col .sbs { display: none !important; }
 
   .sbh { padding-top: max(18px, calc(18px + env(safe-area-inset-top, 0px))); }
@@ -663,63 +586,63 @@ body.mt #bar {
     padding-top: max(12px, calc(12px + env(safe-area-inset-top, 0px)));
   }
   .htitle { font-size: 1.05rem; }
-  .hsub { display: none; }
+  .hsub   { display: none; }
 
   /*
-    SCROLL FIX for mobile:
-    Increase padding-top to clear the mobile header.
-    Increase padding-bottom to clear the fixed input bar + safe area.
-    These are STATIC values — no JS changes them.
+    MOBILE CHAT PADDING:
+    padding-top: clears the mobile header
+    padding-bottom: 200px — intentionally large so you can ALWAYS scroll
+    to the top, and the last message is never hidden behind the keyboard.
   */
   #chat {
-    padding-top: max(96px, calc(80px + env(safe-area-inset-top, 0px))) !important;
-    padding-bottom: max(110px, calc(90px + env(safe-area-inset-bottom, 0px))) !important;
+    padding-top: max(88px, calc(72px + env(safe-area-inset-top, 0px))) !important;
+    padding-bottom: 200px !important;
     padding-left: 12px !important;
     padding-right: 12px !important;
   }
 
+  #wlc { top: 38%; }
   .msg { max-width: 90%; font-size: 0.95rem; }
 
-  /* Input bar: full width, anchored to visual viewport bottom */
+  /*
+    MOBILE BAR:
+    Full width, safe-area aware.
+    position:fixed — when keyboard opens on Android WebView, the layout
+    viewport shrinks, and fixed elements re-anchor to its new bottom edge
+    which is the top of the keyboard. Bar stays above keyboard correctly.
+    No JS manipulation of bar position needed.
+  */
   #bar {
-    left: max(10px, env(safe-area-inset-left, 0px)) !important;
-    right: max(10px, env(safe-area-inset-right, 0px)) !important;
-    width: auto !important; max-width: none !important;
-    -webkit-transform: none !important; transform: none !important;
-    bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
+    left:   max(10px, env(safe-area-inset-left, 10px))  !important;
+    right:  max(10px, env(safe-area-inset-right, 10px)) !important;
+    width:  auto !important;
+    max-width: none !important;
+    transform: none !important;
+    bottom: max(10px, env(safe-area-inset-bottom, 10px)) !important;
     border-radius: 20px; padding: 6px 8px;
-    /* No transition on bottom on mobile — instant follow is better */
-    -webkit-transition: border-color 0.2s var(--ez) !important;
     transition: border-color 0.2s var(--ez) !important;
   }
 
-  /* Empty state: bar in center */
-  body.mt #bar {
-    bottom: 38% !important;
-  }
+  body.mt #bar { bottom: 36% !important; }
 
-  /* Welcome in center */
-  #wlc { top: 38%; }
-
-  /* Prevent iOS zoom */
+  /* 16px PREVENTS iOS auto-zoom on input focus */
   #inp { font-size: 16px !important; }
 
-  .ibtn { width: 48px; height: 48px; }
+  .ibtn    { width: 48px; height: 48px; }
   #menubtn { min-width: 48px; min-height: 48px; }
-  .si { min-height: 52px; padding: 12px 10px; }
-  .si-t { font-size: 0.83rem; }
-  .cpbtn { opacity: 0.45; padding: 8px; }
+  .si      { min-height: 52px; padding: 12px 10px; }
+  .si-t    { font-size: 0.83rem; }
+  .cpbtn   { opacity: 0.45; padding: 8px; }
 
-  #scrbtn { bottom: max(88px, calc(80px + env(safe-area-inset-bottom, 0px))); }
-  #vtoast { bottom: max(80px, calc(72px + env(safe-area-inset-bottom, 0px))); }
+  #scrbtn { bottom: max(86px, calc(76px + env(safe-area-inset-bottom, 0px))); }
+  #vtoast { bottom: max(78px, calc(68px + env(safe-area-inset-bottom, 0px))); }
 }
 
 @media (max-width: 370px) { .htitle { font-size: 0.9rem; letter-spacing: 0.16em; } }
+
 @media (prefers-reduced-motion: reduce) {
-  *,*::before,*::after {
-    -webkit-animation-duration: 0.01ms !important;
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
-    -webkit-transition-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
 }
@@ -756,6 +679,7 @@ body.mt #bar {
 
   <!-- MAIN -->
   <div id="main">
+
     <div id="hdr">
       <button id="menubtn" aria-label="Menu">
         <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
@@ -779,10 +703,10 @@ body.mt #bar {
       <div class="hr"></div>
     </div>
 
-    <!-- Welcome: absolutely positioned, never in chat flow -->
+    <!-- Welcome: NOT inside #chat, absolutely positioned in #main -->
     <div id="wlc"><span>Ready.</span></div>
 
-    <!-- Chat: absolutely fills #main, always scrollable -->
+    <!-- Chat: position:absolute, always fills #main, always scrollable -->
     <div id="chat"></div>
 
     <button id="scrbtn" aria-label="Scroll to bottom">
@@ -790,7 +714,7 @@ body.mt #bar {
     </button>
     <div id="vtoast" aria-live="polite">● Listening…</div>
 
-    <!-- Bar: position:fixed, always anchored to visual viewport -->
+    <!-- Bar: position:fixed -->
     <div id="bar">
       <textarea id="inp" placeholder="Ask BLANK_" rows="1"
         autocomplete="off" autocorrect="on" spellcheck="true"
@@ -825,6 +749,7 @@ var $snc  = document.getElementById('stripnc');
 var $mt   = document.getElementById('mtrig');
 var $md   = document.getElementById('mdrop');
 var $ml   = document.getElementById('mlbl');
+var $bar  = document.getElementById('bar');
 
 /* ── state ── */
 var hist  = [];
@@ -837,11 +762,71 @@ var lstn  = false;
 
 function isMobile() { return window.innerWidth <= 700; }
 
-/* ══════════════════════
+/* ══════════════════════════════════════════════════════════
+   VISUAL VIEWPORT / KEYBOARD HANDLER
+   ──────────────────────────────────────────────────────────
+   This is the CORRECT solution for Android WebView keyboard issues.
+
+   When the keyboard opens:
+   • window.innerHeight shrinks (layout viewport shrinks)
+   • visualViewport.height tells us the actual visible area height
+   • We use this to pin #bar to the TOP of the keyboard
+
+   When keyboard closes:
+   • visualViewport.height == window.innerHeight again
+   • We restore normal bar position
+
+   IMPORTANT: We only move #bar. We NEVER change #chat's height
+   or any other element. This is why scroll works independently.
+══════════════════════════════════════════════════════════ */
+var kbOpen     = false;
+var initialWH  = window.innerHeight; /* locked at page load */
+
+function onViewportChange() {
+  if (!isMobile()) return;
+
+  var vvh = window.visualViewport
+    ? window.visualViewport.height
+    : window.innerHeight;
+
+  var kbHeight = initialWH - vvh;
+
+  if (kbHeight > 80) {
+    /* keyboard is open */
+    kbOpen = true;
+    /* pin bar above keyboard: distance from visual viewport bottom */
+    var safeB = parseInt(getComputedStyle(document.documentElement)
+      .getPropertyValue('--safe-b') || '0') || 0;
+    $bar.style.bottom = (kbHeight + 8) + 'px';
+    $bar.style.setProperty('bottom', (kbHeight + 8) + 'px', 'important');
+  } else {
+    /* keyboard is closed — restore CSS-controlled position */
+    kbOpen = false;
+    $bar.style.removeProperty('bottom');
+    /* Allow body to re-sync */
+    document.body.classList.remove('kb-open');
+  }
+}
+
+/* Update initialWH if orientation changes (landscape↔portrait) */
+window.addEventListener('orientationchange', function() {
+  setTimeout(function() {
+    initialWH = window.innerHeight;
+    onViewportChange();
+  }, 350);
+}, { passive: true });
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', onViewportChange, { passive: true });
+  window.visualViewport.addEventListener('scroll', onViewportChange, { passive: true });
+} else {
+  /* fallback for older WebViews without visualViewport API */
+  window.addEventListener('resize', onViewportChange, { passive: true });
+}
+
+/* ══════════════════════════════
    EMPTY / WELCOME
-   #wlc is absolutely positioned — it never touches the chat layout.
-   We simply show/hide it with opacity.
-══════════════════════ */
+══════════════════════════════ */
 function msgCount() {
   return $chat.querySelectorAll('.msg').length;
 }
@@ -849,23 +834,16 @@ function msgCount() {
 function syncEmpty() {
   var e = msgCount() === 0;
   document.body.classList.toggle('mt', e);
-  // Show/hide welcome with opacity only — no layout change
   $wlc.classList.toggle('hide', !e);
-  // Update placeholder
   $inp.placeholder = e ? 'Ask BLANK_' : 'Message…';
 }
 
-/* ══════════════════════
+/* ══════════════════════════════
    SIDEBAR
-══════════════════════ */
-function openSB() {
-  $sb.classList.add('open');
-  $ov.classList.add('on');
-}
-function closeSB() {
-  $sb.classList.remove('open');
-  $ov.classList.remove('on');
-}
+══════════════════════════════ */
+function openSB()  { $sb.classList.add('open');    $ov.classList.add('on'); }
+function closeSB() { $sb.classList.remove('open'); $ov.classList.remove('on'); }
+
 function toggleSB() {
   if (isMobile()) {
     $sb.classList.contains('open') ? closeSB() : openSB();
@@ -888,26 +866,27 @@ document.addEventListener('touchend', function(e) {
   var dy = Math.abs(e.changedTouches[0].clientY - _ty);
   if (dx < -52 && dy < 70 && $sb.classList.contains('open')) closeSB();
 }, { passive: true });
-/* prevent scroll bleed through when sidebar open */
 document.addEventListener('touchmove', function(e) {
   if ($sb.classList.contains('open') && !$sb.contains(e.target)) e.preventDefault();
 }, { passive: false });
 
-/* ══════════════════════
+/* ══════════════════════════════
    FETCH HELPER
-══════════════════════ */
+══════════════════════════════ */
 function fetchJSON(url, options) {
-  return fetch(url, options).then(function(r) {
-    if (!r.ok) return {};
-    return r.text().then(function(t) {
-      try { return t ? JSON.parse(t) : {}; } catch(e) { return {}; }
-    });
-  }).catch(function() { return {}; });
+  return fetch(url, options)
+    .then(function(r) {
+      if (!r.ok) return {};
+      return r.text().then(function(t) {
+        try { return t ? JSON.parse(t) : {}; } catch(e) { return {}; }
+      });
+    })
+    .catch(function() { return {}; });
 }
 
-/* ══════════════════════
+/* ══════════════════════════════
    SESSIONS
-══════════════════════ */
+══════════════════════════════ */
 function loadSessions() {
   fetchJSON('/sessions', { credentials: 'include' }).then(function(d) {
     var arr = Array.isArray(d) ? d : (d.sessions || []);
@@ -946,60 +925,68 @@ function renderSessions(list) {
 
 function newChat() {
   if (sid && msgCount() === 0) { closeSB(); return; }
-  fetchJSON('/sessions/new', { method: 'POST', credentials: 'include' }).then(function(d) {
-    if (d && d.id) sid = d.id; else sid = null;
-    hist = [];
-    clearChat();
-    loadSessions();
-  }).catch(function(){}).finally(function() { closeSB(); });
+  fetchJSON('/sessions/new', { method: 'POST', credentials: 'include' })
+    .then(function(d) {
+      sid  = (d && d.id) ? d.id : null;
+      hist = [];
+      clearChat();
+      loadSessions();
+    })
+    .catch(function() {})
+    .finally(function() { closeSB(); });
 }
 
 function loadSession(id) {
-  fetchJSON('/sessions/' + id, { credentials: 'include' }).then(function(d) {
-    sid = (d && d.id) ? d.id : id;
-    var msgs = Array.isArray(d) ? d : (d.messages || d.history || d.chat || []);
-    hist = msgs.map(function(m) {
-      return { role: m.role, content: m.content || m.text || m.message || '' };
-    });
-    clearChat();
-    msgs.forEach(function(m) {
-      var txt = m.content || m.text || m.message || '';
-      if (m.role === 'user') addUserI(txt); else addBotI(txt);
-    });
-    syncEmpty();
-    scrollBot(true);
-    loadSessions();
-  }).catch(function(){}).finally(function() { closeSB(); });
+  fetchJSON('/sessions/' + id, { credentials: 'include' })
+    .then(function(d) {
+      sid  = (d && d.id) ? d.id : id;
+      var msgs = Array.isArray(d) ? d : (d.messages || d.history || d.chat || []);
+      hist = msgs.map(function(m) {
+        return { role: m.role, content: m.content || m.text || m.message || '' };
+      });
+      clearChat();
+      msgs.forEach(function(m) {
+        var txt = m.content || m.text || m.message || '';
+        if (m.role === 'user') addUserI(txt); else addBotI(txt);
+      });
+      syncEmpty();
+      scrollBot(true);
+      loadSessions();
+    })
+    .catch(function() {})
+    .finally(function() { closeSB(); });
 }
 
 function delSession(id) {
-  fetch('/sessions/' + id, { method: 'DELETE', credentials: 'include' }).then(function() {
-    if (sid === id) { sid = null; hist = []; clearChat(); }
-    loadSessions();
-  }).catch(function(){});
+  fetch('/sessions/' + id, { method: 'DELETE', credentials: 'include' })
+    .then(function() {
+      if (sid === id) { sid = null; hist = []; clearChat(); }
+      loadSessions();
+    })
+    .catch(function() {});
 }
 
 $nc.addEventListener('click', newChat);
 if ($snc) $snc.addEventListener('click', newChat);
 
-/* ══════════════════════
+/* ══════════════════════════════
    SCROLL
-   #chat is absolutely positioned and always scrollable.
-   No JS ever changes its height.
-══════════════════════ */
+   #chat is position:absolute and always fills #main.
+   Its scrollHeight = full content height, always correct.
+   We never modify its size — it scrolls freely at all times.
+══════════════════════════════ */
 var _sd = 0;
 $chat.addEventListener('scroll', function() {
   clearTimeout(_sd);
   _sd = setTimeout(function() {
-    var d = $chat.scrollHeight - $chat.scrollTop - $chat.clientHeight;
-    up = d > 80;
+    var dist = $chat.scrollHeight - $chat.scrollTop - $chat.clientHeight;
+    up = dist > 80;
     $scr.classList.toggle('on', up);
   }, 50);
 }, { passive: true });
 
-/* User touching chat means they're scrolling intentionally — stop auto-scroll */
+/* When user touches chat, they intend to scroll — stop auto-scroll */
 $chat.addEventListener('touchstart', function() { up = true; }, { passive: true });
-
 $scr.addEventListener('click', function() { scrollBot(true); });
 
 function scrollBot(force) {
@@ -1011,9 +998,9 @@ function scrollBot(force) {
 }
 function autoScroll() { if (!up) scrollBot(false); }
 
-/* ══════════════════════
-   TEXTAREA AUTO-RESIZE
-══════════════════════ */
+/* ══════════════════════════════
+   TEXTAREA
+══════════════════════════════ */
 function resize() {
   $inp.style.height = 'auto';
   $inp.style.height = Math.min($inp.scrollHeight, 160) + 'px';
@@ -1023,9 +1010,9 @@ $inp.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
 });
 
-/* ══════════════════════
+/* ══════════════════════════════
    SEND
-══════════════════════ */
+══════════════════════════════ */
 $snd.addEventListener('click', send);
 
 function send() {
@@ -1038,9 +1025,10 @@ function send() {
     $inp.value = ''; resize();
     $snd.disabled = true;
     scrollBot(true);
+
     /*
-      KEYBOARD FIX: blur to dismiss keyboard after send.
-      We never re-focus programmatically — prevents keyboard popping back.
+      KEYBOARD: blur to dismiss keyboard after send.
+      We never re-focus — prevents keyboard re-opening.
     */
     $inp.blur();
 
@@ -1049,44 +1037,45 @@ function send() {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text, history: hist, model: mdl, session_id: sid })
-    }).then(function(d) {
+    })
+    .then(function(d) {
       removeSpin(lid);
-      var reply = (d.reply || '').trim();
+      var reply = (d && d.reply) ? d.reply.trim() : '';
       if (reply) {
-        hist.push({ role: 'user', content: text });
+        hist.push({ role: 'user',      content: text  });
         hist.push({ role: 'assistant', content: reply });
         typeBot(reply);
       } else {
         typeBot('Connection lost or empty response.');
       }
       loadSessions();
-    }).catch(function() {
+    })
+    .catch(function() {
       removeSpin(lid);
       typeBot('An error occurred. Please check your connection.');
-    }).finally(function() {
+    })
+    .finally(function() {
       $snd.disabled = false;
-      /* DO NOT re-focus — would reopen keyboard on mobile */
+      /* NO focus — keyboard must stay down */
     });
   };
 
   if (!sid) {
-    fetchJSON('/sessions/new', { method: 'POST', credentials: 'include' }).then(function(d) {
-      if (d && d.id) sid = d.id;
-      doSend();
-    }).catch(function() { doSend(); });
+    fetchJSON('/sessions/new', { method: 'POST', credentials: 'include' })
+      .then(function(d) { if (d && d.id) sid = d.id; })
+      .catch(function() {})
+      .finally(doSend);
   } else {
     doSend();
   }
 }
 
-/* ══════════════════════
+/* ══════════════════════════════
    CHAT HELPERS
-══════════════════════ */
+══════════════════════════════ */
 function clearChat() {
-  /* Remove only .msg elements, never anything else */
   $chat.querySelectorAll('.msg').forEach(function(el) { el.remove(); });
-  up = false;
-  $scr.classList.remove('on');
+  up = false; $scr.classList.remove('on');
   syncEmpty();
 }
 
@@ -1159,20 +1148,22 @@ function makeDots() {
 }
 function mk(tag, cls) { var e = document.createElement(tag); e.className = cls; return e; }
 
-/* delegated copy handler */
+/* delegated copy — one listener on #chat, works on all messages */
 function cpb()  { return '<button class="cpbtn" aria-label="Copy">' + cpico() + '</button>'; }
 function cpico(){ return '<svg viewBox="0 0 24 24"><path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z"/></svg>'; }
 function okico(){ return '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="#00ff87"/></svg>'; }
 
 $chat.addEventListener('click', function(e) {
   var btn = e.target.closest('.cpbtn'); if (!btn) return;
-  var sp  = btn.closest('.msg') && btn.closest('.msg').querySelector('.mt-text'); if (!sp) return;
-  var txt = sp.textContent;
+  var sp  = btn.closest('.msg') && btn.closest('.msg').querySelector('.mt-text');
+  if (!sp) return;
+  var txt  = sp.textContent;
   var done = function() { btn.innerHTML = okico(); setTimeout(function() { btn.innerHTML = cpico(); }, 2000); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(txt).then(done).catch(function() { fbcp(txt, done); });
   } else { fbcp(txt, done); }
 });
+
 function fbcp(txt, cb) {
   var ta = document.createElement('textarea');
   ta.value = txt; ta.style.cssText = 'position:fixed;top:-9999px;opacity:0';
@@ -1184,9 +1175,9 @@ function esc(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/* ══════════════════════
+/* ══════════════════════════════
    MODEL DROPDOWN
-══════════════════════ */
+══════════════════════════════ */
 $mt.addEventListener('click', function(e) {
   e.stopPropagation();
   var open = $md.classList.toggle('open');
@@ -1202,10 +1193,7 @@ $mt.addEventListener('click', function(e) {
         $md.style.left = (window.innerWidth - mr.width - 8) + 'px';
         $md.style.transform = 'none';
       }
-      if (mr.left < 8) {
-        $md.style.left = '8px';
-        $md.style.transform = 'none';
-      }
+      if (mr.left < 8) { $md.style.left = '8px'; $md.style.transform = 'none'; }
     });
   }
 });
@@ -1221,9 +1209,9 @@ document.addEventListener('click', function() {
   $md.classList.remove('open'); $mt.classList.remove('open');
 }, { passive: true });
 
-/* ══════════════════════
+/* ══════════════════════════════
    VOICE
-══════════════════════ */
+══════════════════════════════ */
 $mic.addEventListener('click', toggleVoice);
 function toggleVoice() {
   if (lstn) { stopVoice(); return; }
@@ -1246,9 +1234,9 @@ function toggleVoice() {
 }
 function stopVoice() { if (recog) { try { recog.stop(); } catch(e) {} } }
 
-/* ══════════════════════
+/* ══════════════════════════════
    INIT
-══════════════════════ */
+══════════════════════════════ */
 syncEmpty();
 loadSessions();
 
