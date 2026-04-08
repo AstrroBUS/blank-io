@@ -646,6 +646,31 @@ body.mt #bar { bottom: 40%; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ───── Markdown styles (ADD THIS AT END) ───── */
+.inline-code {
+  background: #111;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.code-block {
+  background: #0d0d0d;
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 12px;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin-top: 8px;
+}
+
+.code-block code {
+  font-family: monospace;
+  font-size: 0.9em;
+  color: #ddd;
+}
+
 </style>
 </head>
 
@@ -732,6 +757,35 @@ body.mt #bar { bottom: 40%; }
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 'use strict';
+
+/* ───── Markdown Renderer ───── */
+function renderMD(text) {
+  if (!text) return '';
+
+  text = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // code blocks ```
+  text = text.replace(/```([\s\S]*?)```/g, function(_, code) {
+    return `<pre class="code-block"><code>${code}</code></pre>`;
+  });
+
+  // inline code `
+  text = text.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+  // bold **
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+  // italic *
+  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+  // line breaks
+  text = text.replace(/\n/g, "<br>");
+
+  return text;
+}
 
 /* ── refs ── */
 var $chat = document.getElementById('chat');
@@ -996,7 +1050,14 @@ function scrollBot(force) {
     if (force) { up = false; $scr.classList.remove('on'); }
   });
 }
-function autoScroll() { if (!up) scrollBot(false); }
+function autoScroll() {
+  const nearBottom =
+    $chat.scrollHeight - $chat.scrollTop - $chat.clientHeight < 120;
+
+  if (!up || nearBottom) {
+    scrollBot(false);
+  }
+}
 
 /* ══════════════════════════════
    TEXTAREA
@@ -1086,7 +1147,7 @@ function addUserI(text) {
 }
 function addBotI(text) {
   var el = mk('div', 'msg bot');
-  el.innerHTML = '<span class="blbl">BLANK_</span><span class="mt-text">' + esc(text) + '</span>' + cpb();
+  el.innerHTML = '<span class="blbl">BLANK_</span><span class="mt-text">' + renderMD(text) + '</span>' + cpb();
   $chat.appendChild(el);
 }
 
@@ -1135,6 +1196,7 @@ function typeBot(text) {
       setTimeout(step, 14);
     } else {
       d.remove();
+      sp.innerHTML = renderMD(text);
       el.insertAdjacentHTML('beforeend', cpb());
       autoScroll();
     }
