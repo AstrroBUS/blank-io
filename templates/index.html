@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
 <meta name="theme-color" content="#000"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -75,6 +75,14 @@ html {
   overflow: hidden;
   background: var(--bg);
 }
+
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+
 
 body {
   width: 100%; height: 100%;
@@ -480,7 +488,7 @@ body.col #bar {
 }
 
 /* empty state: bar floats to center */
-body.mt #bar { bottom: 40%; }
+body.mt #bar { bottom: 32%; }
 
 #inp {
   flex: 1; min-width: 0;
@@ -779,7 +787,7 @@ function renderMD(text) {
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
   // italic *
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  text = text.replace(/\*(?!\*)(.*?)\*(?!\*)/g, '<em>$1</em>');
 
   // line breaks
   text = text.replace(/\n/g, "<br>");
@@ -846,23 +854,27 @@ function onViewportChange() {
   var kbHeight = initialWH - vvh;
 
   if (kbHeight > 80) {
-    /* keyboard is open */
     kbOpen = true;
-    /* pin bar above keyboard: distance from visual viewport bottom */
-    var safeB = parseInt(getComputedStyle(document.documentElement)
-      .getPropertyValue('--safe-b') || '0') || 0;
+
     $bar.style.bottom = (kbHeight + 8) + 'px';
-    $bar.style.setProperty('bottom', (kbHeight + 8) + 'px', 'important');
+
+    // 🔥 allow scrolling below keyboard
+    $chat.style.paddingBottom = (kbHeight + 120) + 'px';
+
+    setTimeout(function() {
+      $chat.scrollTop = $chat.scrollHeight;
+    }, 50);
+
   } else {
-    /* keyboard is closed — restore CSS-controlled position */
     kbOpen = false;
+
     $bar.style.removeProperty('bottom');
-    /* Allow body to re-sync */
-    document.body.classList.remove('kb-open');
+
+    // reset padding
+    $chat.style.paddingBottom = '200px';
   }
 }
 
-/* Update initialWH if orientation changes (landscape↔portrait) */
 window.addEventListener('orientationchange', function() {
   setTimeout(function() {
     initialWH = window.innerHeight;
@@ -874,7 +886,6 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', onViewportChange, { passive: true });
   window.visualViewport.addEventListener('scroll', onViewportChange, { passive: true });
 } else {
-  /* fallback for older WebViews without visualViewport API */
   window.addEventListener('resize', onViewportChange, { passive: true });
 }
 
@@ -1302,7 +1313,8 @@ function stopVoice() { if (recog) { try { recog.stop(); } catch(e) {} } }
 syncEmpty();
 loadSessions();
 
-}); /* end DOMContentLoaded */
+}); // closes DOMContentLoaded
+
 </script>
 </body>
 </html>
